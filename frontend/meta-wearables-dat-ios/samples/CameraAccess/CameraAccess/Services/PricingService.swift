@@ -28,9 +28,13 @@ struct Pricing: Codable, Equatable {
   let count: Int
 }
 
+private struct BackendErrorResponse: Codable {
+  let detail: String?
+}
+
 enum PricingError: LocalizedError {
   case invalidURL
-  case badStatus(Int, String)
+  case badStatus(Int, String?)
   case decodingFailed(Error)
   case transport(Error)
 
@@ -38,9 +42,18 @@ enum PricingError: LocalizedError {
     switch self {
     case .invalidURL:
       return "Backend URL is not configured correctly."
-    case .badStatus(let code, let body):
-      let snippet = body.prefix(200)
-      return "Server responded \(code). \(snippet)"
+    case .badStatus(let code, let detail):
+      let normalized = (detail ?? "").lowercased()
+      if normalized.contains("quota") || normalized.contains("resource_exhausted") {
+        return "Gemini quota reached. Check billing/quota and retry in about a minute."
+      }
+      if normalized.contains("api key") || normalized.contains("invalid_argument") {
+        return "Gemini API key looks invalid. Check GOOGLE_API_KEY in .env."
+      }
+      if let detail, !detail.isEmpty {
+        return "Server responded \(code): \(detail)"
+      }
+      return "Server responded \(code)."
     case .decodingFailed(let err):
       return "Couldn't read server response: \(err.localizedDescription)"
     case .transport(let err):
@@ -56,7 +69,7 @@ final class PricingService {
   // printed by `ngrok http 8000` before each run. For simulator-only
   // testing you can also point this at http://localhost:8000, but that
   // will require an App Transport Security exception on a physical device.
-  static let baseURL: String = "https://REPLACE-ME.ngrok-free.app"
+  static let baseURL: String = "https://probiotic-wisplike-lizard.ngrok-free.dev"
 
   private let session: URLSession
   private let decoder: JSONDecoder
@@ -100,8 +113,13 @@ final class PricingService {
     }
 
     if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
-      let body = String(data: data, encoding: .utf8) ?? ""
-      throw PricingError.badStatus(http.statusCode, body)
+      var detail: String? = nil
+      if let parsed = try? decoder.decode(BackendErrorResponse.self, from: data) {
+        detail = parsed.detail
+      } else {
+        detail = String(data: data, encoding: .utf8)
+      }
+      throw PricingError.badStatus(http.statusCode, detail)
     }
 
     do {

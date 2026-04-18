@@ -101,6 +101,10 @@ struct VerdictView: View {
         .font(.subheadline)
         .foregroundColor(.white.opacity(0.85))
         .multilineTextAlignment(.center)
+      Text(recoveryHint(for: message))
+        .font(.caption)
+        .foregroundColor(.white.opacity(0.7))
+        .multilineTextAlignment(.center)
       Button(action: onRetry) {
         Label("Retry", systemImage: "arrow.clockwise")
           .font(.headline)
@@ -114,6 +118,20 @@ struct VerdictView: View {
     .frame(maxWidth: .infinity)
     .padding(20)
     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+  }
+
+  private func recoveryHint(for message: String) -> String {
+    let normalized = message.lowercased()
+    if normalized.contains("quota") {
+      return "Gemini quota may be exhausted. Wait about a minute or check billing/quota, then retry."
+    }
+    if normalized.contains("api key") {
+      return "Check GOOGLE_API_KEY in your backend .env and restart the server."
+    }
+    if normalized.contains("network") {
+      return "Confirm ngrok and backend are both running, then retry."
+    }
+    return "If this keeps happening, verify your backend keys and retry."
   }
 
   private func resultCard(_ result: ScanResult) -> some View {
