@@ -97,8 +97,8 @@ async def get_prices(query: str, game: str = "") -> dict:
             median = (prices[mid - 1] + prices[mid]) / 2 if len(prices) % 2 == 0 else prices[mid]
 
             return {
-                "low": prices[0],
-                "high": prices[-1],
+                "low": round(prices[0], 2),
+                "high": round(prices[-1], 2),
                 "median": round(median, 2),
                 "count": len(prices),
             }
