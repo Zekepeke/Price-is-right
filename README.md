@@ -1,6 +1,6 @@
 # Price is Right Glasses
 
-Point your Meta Ray-Ban glasses at any vintage or second-hand item and instantly know if it is worth buying. Powered by Claude or Gemini Vision and eBay pricing data.
+Point your Meta Ray-Ban glasses at any vintage or second-hand item and instantly know if it is worth buying. Powered by Claude or Gemini Vision, with multi-source pricing across eBay, Discogs, and trading card APIs.
 
 ---
 
@@ -14,15 +14,17 @@ Point your Meta Ray-Ban glasses at any vintage or second-hand item and instantly
         | POST /scan  (base64 image + user_id)
         v
 [Python Backend  --  FastAPI]
-        |--- Claude Vision (Anthropic)  ---|
-        |--- Gemini Vision (Google)     ---|--> identifies item, brand, condition
+        |--- Claude/Gemini Vision --> identifies item + picks pricing source
         |
-        +--- eBay Browse API  --> fetches real listed prices
+        +--- pricing router (pricing_source flag)
+        |        |--- eBay Browse API      (default)
+        |        |--- Discogs API          (vinyl, CDs, cassettes)
+        |        |--- Scryfall + Pokemon TCG API  (trading cards)
         |
         +--- Supabase
                |-- storage: scan-images bucket  (uploaded JPEG)
                |-- table:   scans               (item + verdict)
-               |-- table:   pricing_results     (price range)
+               |-- table:   pricing_results     (price range + source)
                |-- realtime on scans table
 ```
 
@@ -41,7 +43,9 @@ price-is-right/
 │   │   ├── gemini.py        # Google gemini-2.0-flash
 │   │   └── prompt.py        # Shared vision prompt
 │   ├── pricing/
-│   │   └── ebay.py          # eBay Browse API
+│   │   ├── ebay.py          # eBay Browse API
+│   │   ├── discogs.py       # Discogs marketplace stats
+│   │   └── tcg.py           # Scryfall (MTG) + Pokémon TCG API
 │   ├── test_scan.py         # CLI test script (Windows)
 │   ├── .env                 # API keys (never commit)
 │   ├── .env.example
@@ -113,6 +117,8 @@ RLS is enabled on all three tables. The backend uses the service role key which 
 | `GOOGLE_API_KEY` | backend | Required when `VISION_PROVIDER=gemini` |
 | `EBAY_CLIENT_ID` | backend | eBay Developer app Client ID |
 | `EBAY_CLIENT_SECRET` | backend | eBay Developer app Cert ID |
+| `DISCOGS_TOKEN` | backend | Discogs personal access token (required for vinyl/CD lookups) |
+| `POKEMON_TCG_API_KEY` | backend | Optional; raises rate limit on Pokémon TCG API |
 | `SUPABASE_URL` | backend | Project URL from Supabase dashboard |
 | `SUPABASE_SERVICE_KEY` | backend | Service role key (bypasses RLS) |
 | `SUPABASE_ANON_KEY` | iOS app | Anon/public key |
@@ -194,7 +200,8 @@ Prints the full JSON response. Exits with a clear error message if the backend i
     "category": "vinyl record",
     "brand": "The Beatles",
     "condition": "good",
-    "ebay_search": "Beatles Abbey Road vinyl record",
+    "pricing_source": "discogs",
+    "search_query": "Beatles Abbey Road vinyl",
     "confidence": 0.92
   },
   "pricing": {
@@ -223,6 +230,19 @@ Both return the same response shape. Switch by changing `VISION_PROVIDER` in `.e
 
 ---
 
+## Pricing sources
+
+The vision model tags each item with a `pricing_source` and the router dispatches to the matching API. All sources return the same `{low, high, median, count}` shape.
+
+| Source | Used for | Auth | Notes |
+|---|---|---|---|
+| eBay Browse | General thrift items (clothing, electronics, housewares, toys) | OAuth2 client credentials | Returns *live* listings — asking prices, not sold. Sold-data would require eBay Marketplace Insights API (gated approval). |
+| Discogs | Vinyl, CDs, cassettes, music media | Personal access token | Uses `/marketplace/stats` — currently returns only `lowest_price`, so low/high/median are equal in v1. |
+| Scryfall | Magic: The Gathering cards | None | Free public API; returns USD + USD foil prices. |
+| Pokémon TCG API | Pokémon cards | Optional API key | Embeds TCGPlayer `low/mid/high` prices. Only reads the `normal` price variant — holofoil-only cards will return 0. |
+
+---
+
 ## iOS app (requires Mac)
 
 The real frontend is a SwiftUI app that uses the Meta Wearables SDK to receive camera frames from the glasses over Bluetooth. It is the only part of this project that requires a Mac with Xcode 14+ and a physical iOS device.
@@ -238,9 +258,14 @@ You can build and validate the entire backend pipeline on Windows using the test
 - [x] Claude Vision item identification
 - [x] Gemini Vision item identification
 - [x] eBay pricing via Browse API
+- [x] Discogs pricing for vinyl and CDs
+- [x] Scryfall + Pokémon TCG pricing for trading cards
 - [x] Supabase persistence and image storage
 - [x] Windows test harness (test_ui.html + test_scan.py)
 - [ ] SwiftUI iOS app with Meta Wearables SDK
 - [ ] Text-to-speech verdict read aloud through glasses speaker
+- [ ] Improve Discogs price distribution (paginate marketplace/search)
+- [ ] Handle holofoil-only Pokémon cards in tcg.py
+- [ ] eBay Marketplace Insights API for sold-data (post-hackathon)
 - [ ] Poshmark / Mercari pricing sources
 - [ ] Price history trend (not just current listings)

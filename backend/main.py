@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 from supabase import create_client, Client
 from vision import claude, gemini
-from pricing.ebay import get_prices
+from pricing import ebay, discogs, tcg
 
 load_dotenv()
 app = FastAPI()
@@ -37,6 +37,12 @@ def identify_item(image_base64: str) -> dict:
         return gemini.identify_item(image_base64)
     return claude.identify_item(image_base64)
 
+async def get_prices(source: str, query: str) -> dict:
+    if source == "discogs":
+        return await discogs.get_prices(query)
+    if source == "tcg":
+        return await tcg.get_prices(query)
+    return await ebay.get_price(query)
 
 @app.post("/scan")
 async def scan_item(req: ScanRequest):
@@ -53,7 +59,10 @@ async def scan_item(req: ScanRequest):
     image_url = supabase.storage.from_("scan-images").get_public_url(file_name)
 
     item = identify_item(req.image_base64)
-    pricing = await get_prices(item["ebay_search"])
+    
+    source = item.get("pricing_source", "ebay")
+    query = item.get("search_query") or item.get("ebay_search", "")
+    pricing = await get_prices(source, query)
 
     if pricing["count"] == 0:
         verdict = "No pricing data"
@@ -76,7 +85,7 @@ async def scan_item(req: ScanRequest):
 
     supabase.table("pricing_results").insert({
         "scan_id": scan_id,
-        "source": "ebay",
+        "source": source,
         "price_low": pricing["low"],
         "price_high": pricing["high"],
         "price_median": pricing["median"],
