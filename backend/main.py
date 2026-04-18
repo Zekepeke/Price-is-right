@@ -42,7 +42,7 @@ async def get_prices(source: str, query: str) -> dict:
         return await discogs.get_prices(query)
     if source == "tcg":
         return await tcg.get_prices(query)
-    return await ebay.get_price(query)
+    return await ebay.get_prices(query)
 
 @app.post("/scan")
 async def scan_item(req: ScanRequest):
@@ -79,6 +79,7 @@ async def scan_item(req: ScanRequest):
         "verdict": verdict,
         "vision_provider": provider,
         "confidence": item.get("confidence"),
+        "pricing_source": source,  # NOTE: add this column to scans table if not present
     }).execute()
 
     scan_id = scan_row.data[0]["id"]
