@@ -15,6 +15,8 @@ import MWDATCore
 import SwiftUI
 
 struct StreamSessionView: View {
+  @Environment(\.scenePhase) private var scenePhase
+
   let wearables: WearablesInterface
   @ObservedObject private var wearablesViewModel: WearablesViewModel
   @StateObject private var viewModel: StreamSessionViewModel
@@ -27,13 +29,17 @@ struct StreamSessionView: View {
 
   var body: some View {
     ZStack {
-      if viewModel.isStreaming {
-        // Full-screen video view with streaming controls
+      // Stay on the pre-stream view until we have an actual frame. Otherwise the
+      // user sees a black screen with a bare spinner for 5-10s during the
+      // glasses-side warmup on cold launch (and again during any recovery).
+      if viewModel.isStreaming && viewModel.hasReceivedFirstFrame {
         StreamView(viewModel: viewModel, wearablesVM: wearablesViewModel)
       } else {
-        // Pre-streaming setup view with permissions and start button
         NonStreamView(viewModel: viewModel, wearablesVM: wearablesViewModel)
       }
+    }
+    .onChange(of: scenePhase) { _, phase in
+      viewModel.handleScenePhase(phase)
     }
     .alert("Error", isPresented: $viewModel.showError) {
       Button("OK") {

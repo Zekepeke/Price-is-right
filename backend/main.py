@@ -3,6 +3,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
+from fastapi import HTTPException
 from pydantic import BaseModel
 
 from pricing.ebay import get_prices
@@ -27,8 +28,19 @@ def identify_item(image_base64: str) -> dict:
 
 @app.post("/scan")
 async def scan_item(req: ScanRequest):
-    item = identify_item(req.image_base64)
-    pricing = await get_prices(item["ebay_search"])
+    try:
+        item = identify_item(req.image_base64)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Vision provider error: {exc}") from exc
+
+    ebay_query = item.get("ebay_search")
+    if not ebay_query:
+        raise HTTPException(status_code=502, detail="Vision provider returned no ebay_search field")
+
+    try:
+        pricing = await get_prices(ebay_query)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Pricing provider error: {exc}") from exc
 
     median = pricing["median"]
     verdict = "Great deal" if median < 20 else "Fair price" if median < 60 else "Overpriced"

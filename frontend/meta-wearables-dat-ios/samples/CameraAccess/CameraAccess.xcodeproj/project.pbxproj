@@ -24,7 +24,7 @@
 		8FFD602D2E8433E20035E446 /* MockDeviceViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FFD602A2E8433E20035E446 /* MockDeviceViewModel.swift */; };
 		8FFD60342E8434070035E446 /* MediaPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FFD60322E8434070035E446 /* MediaPickerView.swift */; };
 		8FFD60352E8434070035E446 /* StatusText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FFD60332E8434070035E446 /* StatusText.swift */; };
-		8FFD60542E849D0D0035E446 /* RegistrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FFD60532E849D0D0035E446 /* RegistrationView.swift */; };
+		DEEP10112F96000100B07379 /* DeepLinkRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEEP10102F96000100B07379 /* DeepLinkRouter.swift */; };
 		8FFD60602E84A2F70035E446 /* MainAppView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FFD605F2E84A2F70035E446 /* MainAppView.swift */; };
 		8FFD60612E84A2F70035E446 /* DebugMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FFD605E2E84A2F70035E446 /* DebugMenuView.swift */; };
 		E66CC01B2F3E1A9300B07379 /* plant.png in Resources */ = {isa = PBXBuildFile; fileRef = E66CC0192F3E1A9300B07379 /* plant.png */; };
@@ -37,6 +37,10 @@
 		E6FD3BCE2EB4D53A00E7FE5D /* NonStreamView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6FD3BCD2EB4D53A00E7FE5D /* NonStreamView.swift */; };
 		FEEE00012F95000100000001 /* DeviceSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEEE00002F95000100000001 /* DeviceSessionManager.swift */; };
 		FEEE01012F95000200000001 /* PricingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEEE01002F95000200000001 /* PricingService.swift */; };
+		AUID10112F96000200B0737A /* AudioSessionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AUID10102F96000200B0737A /* AudioSessionCoordinator.swift */; };
+		VOIC10112F96000200B0737B /* VoiceCaptureController.swift in Sources */ = {isa = PBXBuildFile; fileRef = VOIC10102F96000200B0737B /* VoiceCaptureController.swift */; };
+		EEAR10112F96000300B0737C /* VoiceCommandFeedback.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEAR10102F96000300B0737C /* VoiceCommandFeedback.swift */; };
+		REGV10112F96000400B0737D /* RegistrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = REGV10102F96000400B0737D /* RegistrationView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -87,7 +91,7 @@
 		8FFD602A2E8433E20035E446 /* MockDeviceViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockDeviceViewModel.swift; sourceTree = "<group>"; };
 		8FFD60322E8434070035E446 /* MediaPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaPickerView.swift; sourceTree = "<group>"; };
 		8FFD60332E8434070035E446 /* StatusText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusText.swift; sourceTree = "<group>"; };
-		8FFD60532E849D0D0035E446 /* RegistrationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegistrationView.swift; sourceTree = "<group>"; };
+		DEEP10102F96000100B07379 /* DeepLinkRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepLinkRouter.swift; sourceTree = "<group>"; };
 		8FFD605E2E84A2F70035E446 /* DebugMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugMenuView.swift; sourceTree = "<group>"; };
 		8FFD605F2E84A2F70035E446 /* MainAppView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainAppView.swift; sourceTree = "<group>"; };
 		E66CC00D2F3E05D900B07379 /* CameraAccessUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CameraAccessUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -102,6 +106,10 @@
 		E6FD3BCD2EB4D53A00E7FE5D /* NonStreamView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NonStreamView.swift; sourceTree = "<group>"; };
 		FEEE00002F95000100000001 /* DeviceSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceSessionManager.swift; sourceTree = "<group>"; };
 		FEEE01002F95000200000001 /* PricingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PricingService.swift; sourceTree = "<group>"; };
+		AUID10102F96000200B0737A /* AudioSessionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSessionCoordinator.swift; sourceTree = "<group>"; };
+		VOIC10102F96000200B0737B /* VoiceCaptureController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCaptureController.swift; sourceTree = "<group>"; };
+		EEAR10102F96000300B0737C /* VoiceCommandFeedback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCommandFeedback.swift; sourceTree = "<group>"; };
+		REGV10102F96000400B0737D /* RegistrationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegistrationView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -179,10 +187,10 @@
 				8FD96B722E6F0A9800F56AB1 /* HomeScreenView.swift */,
 				8FFD605F2E84A2F70035E446 /* MainAppView.swift */,
 				8FD96B742E6F0A9800F56AB1 /* VerdictView.swift */,
-				8FFD60532E849D0D0035E446 /* RegistrationView.swift */,
 				8FD96B752E6F0A9800F56AB1 /* StreamSessionView.swift */,
 				E6A188472EB918740097D0E1 /* StreamView.swift */,
 				E6FD3BCD2EB4D53A00E7FE5D /* NonStreamView.swift */,
+				REGV10102F96000400B0737D /* RegistrationView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -205,7 +213,11 @@
 		FEEE01022F95000200000001 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				AUID10102F96000200B0737A /* AudioSessionCoordinator.swift */,
+				DEEP10102F96000100B07379 /* DeepLinkRouter.swift */,
 				FEEE01002F95000200000001 /* PricingService.swift */,
+				VOIC10102F96000200B0737B /* VoiceCaptureController.swift */,
+				EEAR10102F96000300B0737C /* VoiceCommandFeedback.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -397,7 +409,7 @@
 				8FD96B812E6F0A9800F56AB1 /* HomeScreenView.swift in Sources */,
 				8F2D23802E856711002D0588 /* DebugMenuViewModel.swift in Sources */,
 				FEEE00012F95000100000001 /* DeviceSessionManager.swift in Sources */,
-				8FFD60542E849D0D0035E446 /* RegistrationView.swift in Sources */,
+				DEEP10112F96000100B07379 /* DeepLinkRouter.swift in Sources */,
 				8FFD60342E8434070035E446 /* MediaPickerView.swift in Sources */,
 				8FFD60352E8434070035E446 /* StatusText.swift in Sources */,
 				8FFD602C2E8433E20035E446 /* MockDeviceKitViewModel.swift in Sources */,
@@ -417,6 +429,10 @@
 				8FFD5FF62E8422580035E446 /* CustomButton.swift in Sources */,
 				E6FD3BCE2EB4D53A00E7FE5D /* NonStreamView.swift in Sources */,
 				FEEE01012F95000200000001 /* PricingService.swift in Sources */,
+				AUID10112F96000200B0737A /* AudioSessionCoordinator.swift in Sources */,
+				VOIC10112F96000200B0737B /* VoiceCaptureController.swift in Sources */,
+				EEAR10112F96000300B0737C /* VoiceCommandFeedback.swift in Sources */,
+				REGV10112F96000400B0737D /* RegistrationView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

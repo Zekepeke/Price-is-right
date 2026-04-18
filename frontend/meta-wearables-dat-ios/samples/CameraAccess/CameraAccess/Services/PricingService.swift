@@ -32,6 +32,10 @@ private struct BackendErrorResponse: Codable {
   let detail: String?
 }
 
+private struct ScanRequest: Codable {
+  let image_base64: String
+}
+
 enum PricingError: LocalizedError {
   case invalidURL
   case badStatus(Int, String?)
@@ -75,8 +79,16 @@ final class PricingService {
   private let decoder: JSONDecoder
   private let encoder: JSONEncoder
 
-  init(session: URLSession = .shared) {
-    self.session = session
+  init(session: URLSession? = nil) {
+    if let session {
+      self.session = session
+    } else {
+      let config = URLSessionConfiguration.default
+      config.timeoutIntervalForRequest = 45
+      config.timeoutIntervalForResource = 60
+      config.waitsForConnectivity = false
+      self.session = URLSession(configuration: config)
+    }
     self.decoder = JSONDecoder()
     self.encoder = JSONEncoder()
   }
@@ -86,8 +98,7 @@ final class PricingService {
       throw PricingError.invalidURL
     }
 
-    let base64 = jpegData.base64EncodedString()
-    let body: [String: String] = ["image_base64": base64]
+    let body = ScanRequest(image_base64: jpegData.base64EncodedString())
 
     var request = URLRequest(url: url)
     request.httpMethod = "POST"

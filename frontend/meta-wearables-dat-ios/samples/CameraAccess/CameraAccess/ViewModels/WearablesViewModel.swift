@@ -25,6 +25,9 @@ class WearablesViewModel: ObservableObject {
   @Published var showError: Bool = false
   @Published var errorMessage: String = ""
 
+  /// Set by `cameraaccess://start` when registered; `StreamSessionView` consumes this once to mirror "Start streaming".
+  @Published var pendingDeepLinkStart: Bool = false
+
   private var registrationTask: Task<Void, Never>?
   private var deviceStreamTask: Task<Void, Never>?
   private var setupDeviceStreamTask: Task<Void, Never>?
@@ -128,5 +131,33 @@ class WearablesViewModel: ObservableObject {
 
   func dismissError() {
     showError = false
+  }
+
+  /// Entry point for `onOpenURL` / cold-launch URLs: Meta DAT callbacks vs in-app deep links.
+  func handleOpenURL(_ url: URL) {
+    switch DeepLinkRouter.classify(url) {
+    case .metaWearablesCallback:
+      Task {
+        await handleMetaWearablesCallbackURL(url)
+      }
+    case .startShopping(let showConnect):
+      if registrationState == .registered {
+        pendingDeepLinkStart = true
+      } else if showConnect {
+        connectGlasses()
+      }
+    case .unrelated:
+      break
+    }
+  }
+
+  private func handleMetaWearablesCallbackURL(_ url: URL) async {
+    do {
+      _ = try await Wearables.shared.handleUrl(url)
+    } catch let error as RegistrationError {
+      showError(error.description)
+    } catch {
+      showError("Unknown error: \(error.localizedDescription)")
+    }
   }
 }

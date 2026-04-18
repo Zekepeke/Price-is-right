@@ -81,15 +81,18 @@ struct CameraAccessApp: App {
           Text(wearablesViewModel.errorMessage)
         }
         #if DEBUG
-      .sheet(isPresented: $debugMenuViewModel.showDebugMenu) {
-        MockDeviceKitView(viewModel: debugMenuViewModel.mockDeviceKitViewModel)
-      }
-      .overlay {
-        DebugMenuView(debugMenuViewModel: debugMenuViewModel)
-      }
+        .sheet(isPresented: $debugMenuViewModel.showDebugMenu) {
+          MockDeviceKitView(viewModel: debugMenuViewModel.mockDeviceKitViewModel)
+        }
+        .overlay {
+          DebugMenuView(debugMenuViewModel: debugMenuViewModel)
+        }
         #endif
 
-      // Registration view handles the flow for connecting to the glasses via Meta AI
+      // Registration view is an invisible `.onOpenURL` host that forwards
+      // Meta AI callback URLs (and in-app deep links) to the WearablesViewModel.
+      // Without this the DAT SDK never receives the OAuth / permission callback
+      // and later stream starts fail with glasses-side ActivityManager errors.
       RegistrationView(viewModel: wearablesViewModel)
     }
   }

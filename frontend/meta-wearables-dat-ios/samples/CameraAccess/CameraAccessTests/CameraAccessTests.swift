@@ -14,6 +14,28 @@ import XCTest
 
 @testable import CameraAccess
 
+final class NoOpAudioSessionCoordinator: AudioSessionCoordinating {
+  func prepareForSpeechRecording() async throws {}
+  func prepareForSpeechPlayback() async throws {}
+  func tearDownAfterStreamSession() async throws {}
+}
+
+final class NoOpVoiceCaptureController: VoiceCaptureControlling {
+  func startContinuousPhraseListening(
+    shouldListen: @escaping @MainActor () -> Bool,
+    onPhraseMatched: @escaping @MainActor () -> Void
+  ) async {}
+
+  func stopContinuousPhraseListening() {}
+
+  func pauseForAppBackground() {}
+
+  func resumeAfterAppForeground(
+    shouldListen: @escaping @MainActor () -> Bool,
+    onPhraseMatched: @escaping @MainActor () -> Void
+  ) async {}
+}
+
 class ViewModelIntegrationTests: XCTestCase {
 
   private var mockDevice: MockRaybanMeta?
@@ -62,27 +84,26 @@ class ViewModelIntegrationTests: XCTestCase {
     // Setup camera feed
     camera.setCameraFeed(fileURL: videoURL)
 
-    let viewModel = StreamSessionViewModel(wearables: Wearables.shared)
+    let viewModel = StreamSessionViewModel(
+      wearables: Wearables.shared,
+      audioCoordinator: NoOpAudioSessionCoordinator(),
+      voiceCapture: NoOpVoiceCaptureController()
+    )
 
-    // Initially not streaming
     XCTAssertEqual(viewModel.streamingStatus, .stopped)
     XCTAssertFalse(viewModel.isStreaming)
     XCTAssertFalse(viewModel.hasReceivedFirstFrame)
     XCTAssertNil(viewModel.currentVideoFrame)
 
-    // Start streaming session
     await viewModel.handleStartStreaming()
 
-    // Wait for streaming to establish
     try await Task.sleep(nanoseconds: 10_000_000_000)
 
-    // Verify streaming is active and receiving frames
     XCTAssertTrue(viewModel.isStreaming)
     XCTAssertTrue(viewModel.hasReceivedFirstFrame)
     XCTAssertNotNil(viewModel.currentVideoFrame)
     XCTAssertTrue([.streaming, .waiting].contains(viewModel.streamingStatus))
 
-    // Stop streaming
     await viewModel.stopSession()
 
     // Wait for session to stop
@@ -112,7 +133,11 @@ class ViewModelIntegrationTests: XCTestCase {
     camera.setCameraFeed(fileURL: videoURL)
     camera.setCapturedImage(fileURL: imageURL)
 
-    let viewModel = StreamSessionViewModel(wearables: Wearables.shared)
+    let viewModel = StreamSessionViewModel(
+      wearables: Wearables.shared,
+      audioCoordinator: NoOpAudioSessionCoordinator(),
+      voiceCapture: NoOpVoiceCaptureController()
+    )
 
     // Initially not streaming
     XCTAssertEqual(viewModel.streamingStatus, .stopped)
@@ -151,5 +176,45 @@ class ViewModelIntegrationTests: XCTestCase {
 
     XCTAssertFalse(viewModel.isStreaming)
     XCTAssertTrue([.stopped, .waiting].contains(viewModel.streamingStatus))
+  }
+}
+
+// MARK: - Deep link routing
+
+final class DeepLinkRouterTests: XCTestCase {
+
+  func testMetaWearablesQueryTakesPrecedenceOverStartHost() {
+    let url = URL(string: "cameraaccess://start?metaWearablesAction=foo")!
+    XCTAssertEqual(DeepLinkRouter.classify(url), .metaWearablesCallback)
+  }
+
+  func testStartHost() {
+    let url = URL(string: "cameraaccess://start")!
+    XCTAssertEqual(DeepLinkRouter.classify(url), .startShopping(showConnect: false))
+  }
+
+  func testStartHostWithShowConnect() {
+    let url = URL(string: "cameraaccess://start?show=connect")!
+    XCTAssertEqual(DeepLinkRouter.classify(url), .startShopping(showConnect: true))
+  }
+
+  func testStartPathOnHost() {
+    let url = URL(string: "cameraaccess://app.example/foo/start")!
+    XCTAssertEqual(DeepLinkRouter.classify(url), .startShopping(showConnect: false))
+  }
+
+  func testStartPathOnly() {
+    let url = URL(string: "cameraaccess:///start")!
+    XCTAssertEqual(DeepLinkRouter.classify(url), .startShopping(showConnect: false))
+  }
+
+  func testUnrelatedScheme() {
+    let url = URL(string: "https://example.com/start")!
+    XCTAssertEqual(DeepLinkRouter.classify(url), .unrelated)
+  }
+
+  func testCameraAccessUnrelatedPath() {
+    let url = URL(string: "cameraaccess://settings")!
+    XCTAssertEqual(DeepLinkRouter.classify(url), .unrelated)
   }
 }

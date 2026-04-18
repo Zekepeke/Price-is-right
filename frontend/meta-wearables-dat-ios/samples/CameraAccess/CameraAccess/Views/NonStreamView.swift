@@ -22,6 +22,27 @@ struct NonStreamView: View {
   @State private var sheetHeight: CGFloat = 300
   @State private var showSettingsMenu: Bool = false
 
+  private var waitingStatusText: String {
+    if !viewModel.hasActiveDevice {
+      return "Waiting for your glasses to connect"
+    }
+    if !viewModel.isDeviceSessionReady {
+      return "Linking to your glasses"
+    }
+    if viewModel.isStartingStream {
+      return "Starting camera feed"
+    }
+    return "Ready to start streaming"
+  }
+
+  private var isWaiting: Bool {
+    !viewModel.hasActiveDevice || !viewModel.isDeviceSessionReady || viewModel.isStartingStream
+  }
+
+  private var isStartDisabled: Bool {
+    !viewModel.hasActiveDevice || !viewModel.isDeviceSessionReady || viewModel.isStartingStream
+  }
+
   var body: some View {
     ZStack {
       Color.black.edgesIgnoringSafeArea(.all)
@@ -84,7 +105,7 @@ struct NonStreamView: View {
             .font(.system(size: 20, weight: .semibold))
             .foregroundColor(.white)
 
-          Text("Tap the Start streaming button to stream video from your glasses or use the camera button to take a photo from your glasses.")
+          Text("Streaming starts automatically when your glasses are ready. You can also tap Start streaming below, then use the camera button to capture from your glasses.")
             .font(.system(size: 15))
             .multilineTextAlignment(.center)
             .foregroundColor(.white)
@@ -93,24 +114,31 @@ struct NonStreamView: View {
 
         Spacer()
 
-        HStack(spacing: 8) {
-          Image(systemName: "hourglass")
-            .resizable()
-            .aspectRatio(contentMode: .fit)
-            .foregroundColor(.white.opacity(0.7))
-            .frame(width: 16, height: 16)
+        HStack(spacing: 10) {
+          if isWaiting {
+            ProgressView()
+              .progressViewStyle(.circular)
+              .tint(.white.opacity(0.7))
+              .scaleEffect(0.8)
+          } else {
+            Image(systemName: "hourglass")
+              .resizable()
+              .aspectRatio(contentMode: .fit)
+              .foregroundColor(.white.opacity(0.7))
+              .frame(width: 16, height: 16)
+          }
 
-          Text("Waiting for an active device")
+          Text(waitingStatusText)
             .font(.system(size: 14))
             .foregroundColor(.white.opacity(0.7))
         }
         .padding(.bottom, 12)
-        .opacity(viewModel.hasActiveDevice ? 0 : 1)
+        .opacity(isWaiting ? 1 : 0)
 
         CustomButton(
-          title: "Start streaming",
+          title: viewModel.isStartingStream ? "Starting..." : "Start streaming",
           style: .primary,
-          isDisabled: !viewModel.hasActiveDevice
+          isDisabled: isStartDisabled
         ) {
           Task {
             await viewModel.handleStartStreaming()

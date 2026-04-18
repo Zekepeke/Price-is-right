@@ -74,6 +74,10 @@
 	<string>This app needs access to save photos captured from your glasses.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>This app needs camera access to stream from your phone's camera as a mock device feed.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Microphone access lets the app hear “Computa, how much is this worth?” from your glasses or phone to capture a price scan hands-free.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Speech recognition listens for “Computa, how much is this worth?” locally so you can trigger a capture without touching the phone.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
