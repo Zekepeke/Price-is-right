@@ -18,7 +18,7 @@ Rules for pricing_source (follow strictly):
 Tailor search_query to the source:
 - discogs: "artist album format" (e.g. "Beatles Abbey Road vinyl", "Miles Davis Kind of Blue CD")
 - tcg: "card name set name set number" (e.g. "Charizard Base Set 4/102", "Black Lotus Alpha")
-- ebay: descriptive query with brand + model + key details + condition hints (e.g. "Nike Air Jordan 1 Chicago size 10", "Nintendo 64 console with cables", "Canon AE-1 35mm film camera", "Levi 501 vintage selvedge jeans")
+- ebay: descriptive query with brand + model + key details (e.g. "Nike Air Jordan 1 Chicago size 10", "Nintendo 64 console with cables", "Canon AE-1 35mm film camera")
 
 confidence is a float between 0.0 and 1.0 reflecting how certain you are about the identification.
 """
