@@ -3,6 +3,26 @@ import base64
 import json
 import httpx
 
+# ---------------------------------------------------------------
+# test_scan.py
+#
+# Prerequisites:
+#   1. Start the backend first:
+#        uvicorn main:app --reload
+#   2. Make sure your .env has GOOGLE_API_KEY, EBAY_CLIENT_ID,
+#      and EBAY_CLIENT_SECRET set.
+#
+# Usage:
+#   Basic (uses a default dummy user ID):
+#        python test_scan.py path\to\image.jpg
+#
+#   With an explicit user ID:
+#        python test_scan.py path\to\image.jpg your-user-uuid-here
+#
+# Prints the full JSON response from the backend.
+# Exits with a clear error message if the backend is not running.
+# ---------------------------------------------------------------
+
 BACKEND_URL = "http://localhost:8000/scan"
 TEST_USER_ID = "00000000-0000-0000-0000-000000000000"
 
