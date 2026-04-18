@@ -37,11 +37,11 @@ def identify_item(image_base64: str) -> dict:
         return gemini.identify_item(image_base64)
     return claude.identify_item(image_base64)
 
-async def get_prices(source: str, query: str) -> dict:
+async def get_prices(source: str, query: str, brand: str = "") -> dict:
     if source == "discogs":
         return await discogs.get_prices(query)
     if source == "tcg":
-        return await tcg.get_prices(query)
+        return await tcg.get_prices(query, brand)
     return await ebay.get_prices(query)
 
 @app.post("/scan")
@@ -59,10 +59,20 @@ async def scan_item(req: ScanRequest):
     image_url = supabase.storage.from_("scan-images").get_public_url(file_name)
 
     item = identify_item(req.image_base64)
-    
+    print(f"[VISION] item={item}")
+
     source = item.get("pricing_source", "ebay")
     query = item.get("search_query") or item.get("ebay_search", "")
-    pricing = await get_prices(source, query)
+    brand = item.get("brand", "")
+    print(f"[PRICING] source={source!r}  query={query!r}  brand={brand!r}")
+    pricing = await get_prices(source, query, brand)
+    print(f"[PRICING] result={pricing}")
+
+    if pricing["count"] == 0 and source != "ebay":
+        print(f"[PRICING] {source} returned 0 results, falling back to eBay")
+        pricing = await ebay.get_prices(query)
+        source = "ebay"
+        print(f"[PRICING] eBay fallback result={pricing}")
 
     if pricing["count"] == 0:
         verdict = "No pricing data"
@@ -79,7 +89,6 @@ async def scan_item(req: ScanRequest):
         "verdict": verdict,
         "vision_provider": provider,
         "confidence": item.get("confidence"),
-        "pricing_source": source,  # NOTE: add this column to scans table if not present
     }).execute()
 
     scan_id = scan_row.data[0]["id"]
