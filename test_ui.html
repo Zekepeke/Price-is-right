@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Price is Right Glasses - Test UI</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f3f4f6;
+      color: #111827;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+
+    h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.25rem; }
+    .subtitle { color: #6b7280; font-size: 0.875rem; margin-bottom: 2rem; }
+
+    .panel {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 1.5rem;
+      width: 100%;
+      max-width: 480px;
+    }
+
+    .panel + .panel { margin-top: 1.25rem; }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 0.4rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.875rem;
+      color: #111827;
+      margin-bottom: 1rem;
+    }
+
+    input[type="text"]:focus { outline: 2px solid #6366f1; border-color: transparent; }
+
+    .file-area {
+      border: 2px dashed #d1d5db;
+      border-radius: 8px;
+      padding: 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.15s;
+      margin-bottom: 1rem;
+      position: relative;
+    }
+
+    .file-area:hover { border-color: #6366f1; }
+    .file-area input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .file-area-text { color: #6b7280; font-size: 0.875rem; pointer-events: none; }
+    .file-area-text strong { display: block; color: #374151; margin-bottom: 0.25rem; }
+
+    #preview {
+      display: none;
+      width: 100%;
+      max-height: 240px;
+      object-fit: contain;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      background: #f9fafb;
+    }
+
+    button {
+      width: 100%;
+      background: #111827;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 0.75rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    button:hover:not(:disabled) { background: #1f2937; }
+    button:disabled { background: #9ca3af; cursor: not-allowed; }
+
+    .spinner {
+      display: none;
+      width: 18px;
+      height: 18px;
+      border: 2px solid #ffffff55;
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      margin: 0 auto;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #result { display: none; }
+
+    .verdict-badge {
+      display: inline-block;
+      font-size: 1.1rem;
+      font-weight: 700;
+      padding: 0.35rem 0.9rem;
+      border-radius: 999px;
+      margin-bottom: 1rem;
+    }
+
+    .verdict-great  { background: #dcfce7; color: #15803d; }
+    .verdict-fair   { background: #fef9c3; color: #a16207; }
+    .verdict-over   { background: #fee2e2; color: #b91c1c; }
+    .verdict-none   { background: #f3f4f6; color: #6b7280; }
+
+    .result-image {
+      width: 100%;
+      max-height: 200px;
+      object-fit: contain;
+      border-radius: 8px;
+      background: #f9fafb;
+      margin-bottom: 1rem;
+    }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .detail-item label {
+      font-size: 0.7rem;
+      color: #9ca3af;
+      margin-bottom: 0.15rem;
+    }
+
+    .detail-item .value {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #111827;
+      text-transform: capitalize;
+    }
+
+    .pricing-row {
+      background: #f9fafb;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.875rem;
+    }
+
+    .price-median { font-size: 1.3rem; font-weight: 700; }
+    .price-range  { color: #6b7280; font-size: 0.8rem; }
+
+    .error-box {
+      background: #fee2e2;
+      color: #b91c1c;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-size: 0.875rem;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Price is Right Glasses</h1>
+  <p class="subtitle">Windows test harness — simulates the iOS app</p>
+
+  <div class="panel">
+    <label>User ID</label>
+    <input type="text" id="user-id" value="00000000-0000-0000-0000-000000000000">
+
+    <div class="file-area" id="file-area">
+      <input type="file" id="file-input" accept="image/*">
+      <div class="file-area-text">
+        <strong>Click to choose an image</strong>
+        JPEG, PNG, WEBP
+      </div>
+    </div>
+
+    <img id="preview" alt="Preview">
+
+    <div class="error-box" id="error-box"></div>
+
+    <button id="scan-btn" disabled>
+      <span id="btn-label">Select an image first</span>
+      <div class="spinner" id="spinner"></div>
+    </button>
+  </div>
+
+  <div class="panel" id="result">
+    <img class="result-image" id="result-image" alt="Scanned item">
+
+    <div id="verdict-badge" class="verdict-badge"></div>
+
+    <div class="detail-grid">
+      <div class="detail-item">
+        <label>Category</label>
+        <div class="value" id="r-category">—</div>
+      </div>
+      <div class="detail-item">
+        <label>Brand</label>
+        <div class="value" id="r-brand">—</div>
+      </div>
+      <div class="detail-item">
+        <label>Condition</label>
+        <div class="value" id="r-condition">—</div>
+      </div>
+      <div class="detail-item">
+        <label>Confidence</label>
+        <div class="value" id="r-confidence">—</div>
+      </div>
+    </div>
+
+    <div class="pricing-row">
+      <div>
+        <div class="price-median" id="r-median">—</div>
+        <div class="price-range" id="r-range">—</div>
+      </div>
+      <div style="text-align:right; color:#6b7280; font-size:0.8rem;">
+        <div id="r-count">—</div>
+        <div id="r-source">—</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const fileInput  = document.getElementById("file-input");
+    const preview    = document.getElementById("preview");
+    const scanBtn    = document.getElementById("scan-btn");
+    const btnLabel   = document.getElementById("btn-label");
+    const spinner    = document.getElementById("spinner");
+    const errorBox   = document.getElementById("error-box");
+    const resultPanel = document.getElementById("result");
+
+    let selectedFile = null;
+
+    fileInput.addEventListener("change", () => {
+      selectedFile = fileInput.files[0];
+      if (!selectedFile) return;
+
+      const url = URL.createObjectURL(selectedFile);
+      preview.src = url;
+      preview.style.display = "block";
+      scanBtn.disabled = false;
+      btnLabel.textContent = "Scan Item";
+      errorBox.style.display = "none";
+      resultPanel.style.display = "none";
+    });
+
+    scanBtn.addEventListener("click", async () => {
+      if (!selectedFile) return;
+
+      scanBtn.disabled = true;
+      btnLabel.style.display = "none";
+      spinner.style.display = "block";
+      errorBox.style.display = "none";
+      resultPanel.style.display = "none";
+
+      try {
+        const b64 = await toBase64(selectedFile);
+        const userId = document.getElementById("user-id").value.trim() || null;
+
+        const res = await fetch("http://localhost:8000/scan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image_base64: b64, user_id: userId }),
+        });
+
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`${res.status} ${res.statusText}: ${text}`);
+        }
+
+        const data = await res.json();
+        renderResult(data);
+      } catch (err) {
+        errorBox.textContent = err.message;
+        errorBox.style.display = "block";
+      } finally {
+        scanBtn.disabled = false;
+        btnLabel.style.display = "block";
+        btnLabel.textContent = "Scan Item";
+        spinner.style.display = "none";
+      }
+    });
+
+    function toBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result;
+          const b64 = result.includes(",") ? result.split(",")[1] : result;
+          resolve(b64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function renderResult(data) {
+      const verdictMap = {
+        "Great deal":      "verdict-great",
+        "Fair price":      "verdict-fair",
+        "Overpriced":      "verdict-over",
+        "No pricing data": "verdict-none",
+      };
+
+      const badge = document.getElementById("verdict-badge");
+      badge.textContent = data.verdict;
+      badge.className = "verdict-badge " + (verdictMap[data.verdict] ?? "verdict-none");
+
+      const imgEl = document.getElementById("result-image");
+      if (data.image_url) {
+        imgEl.src = data.image_url;
+        imgEl.style.display = "block";
+      } else {
+        imgEl.style.display = "none";
+      }
+
+      document.getElementById("r-category").textContent  = data.item.category  ?? "—";
+      document.getElementById("r-brand").textContent     = data.item.brand      ?? "—";
+      document.getElementById("r-condition").textContent = data.item.condition  ?? "—";
+      document.getElementById("r-confidence").textContent =
+        data.item.confidence != null ? Math.round(data.item.confidence * 100) + "%" : "—";
+
+      if (data.pricing && data.pricing.count > 0) {
+        document.getElementById("r-median").textContent = "$" + data.pricing.median.toFixed(2);
+        document.getElementById("r-range").textContent  =
+          "$" + data.pricing.low.toFixed(2) + " – $" + data.pricing.high.toFixed(2);
+        document.getElementById("r-count").textContent  = data.pricing.count + " listings";
+        document.getElementById("r-source").textContent = "eBay";
+      } else {
+        document.getElementById("r-median").textContent = "—";
+        document.getElementById("r-range").textContent  = "No eBay listings found";
+        document.getElementById("r-count").textContent  = "";
+        document.getElementById("r-source").textContent = "";
+      }
+
+      resultPanel.style.display = "block";
+    }
+  </script>
+</body>
+</html>
