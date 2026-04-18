@@ -4,7 +4,7 @@ import json
 import httpx
 
 # ---------------------------------------------------------------
-# test_scan.py
+#
 #
 # Prerequisites:
 #   1. Start the backend first:
