@@ -8,6 +8,7 @@ Task:
 
 Return STRICT JSON only (no markdown, no prose) with exactly these keys:
 {
+<<<<<<< HEAD
   "category": "short normalized category (e.g. sunglasses, camera, handbag, sneakers, watch)",
   "brand": "brand name string or null",
   "condition": "excellent | good | fair | poor",
@@ -28,3 +29,12 @@ Guidelines:
 - Do not include words like "photo", "image", "used", "for sale", or punctuation spam.
 - Keep "ebay_search" concise (about 4-10 terms).
 """
+=======
+    "category": "e.g. vinyl record / camera / handbag",
+    "brand": "brand name or null",
+    "condition": "excellent | good | fair | poor",
+    "ebay_search": "optimized eBay search string",
+    "confidence": 0.0
+}
+confidence is a float between 0.0 and 1.0 reflecting how certain you are about the identification."""
+>>>>>>> main
