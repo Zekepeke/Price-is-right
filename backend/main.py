@@ -1,11 +1,16 @@
 import os
+from pathlib import Path
+
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from pydantic import BaseModel
-from dotenv import load_dotenv
-from vision import claude, gemini
-from pricing.ebay import get_prices
 
-load_dotenv()
+from pricing.ebay import get_prices
+from vision import claude, gemini
+
+# Repo-root .env (one level above backend/). Use override=True so uvicorn --reload
+# workers don't keep a stale GOOGLE_API_KEY from the parent process env.
+load_dotenv(Path(__file__).resolve().parent.parent / ".env", override=True)
 app = FastAPI()
 
 
