@@ -54,7 +54,7 @@ price-is-right/
 │   ├── main.py              # FastAPI app, /scan endpoint
 │   ├── vision/
 │   │   ├── claude.py        # Anthropic claude-sonnet-4-6
-│   │   ├── gemini.py        # Google gemini-2.0-flash
+│   │   ├── gemini.py        # Google gemini-2.5-flash
 │   │   └── prompt.py        # Shared vision prompt
 │   ├── pricing/
 │   │   ├── ebay.py          # eBay Browse API
@@ -266,7 +266,7 @@ Possible verdict values: `Great deal`, `Fair price`, `Overpriced`, `No pricing d
 | Provider | Model | Notes |
 |---|---|---|
 | Claude (Anthropic) | `claude-sonnet-4-6` | Strong brand recognition and condition grading |
-| Gemini (Google) | `gemini-2.0-flash` | Fast and cost-effective for high-volume scanning |
+| Gemini (Google) | `gemini-2.5-flash` | Fast and cost-effective for high-volume scanning |
 
 Both return the same response shape. Switch by changing `VISION_PROVIDER` in `.env`.
 
