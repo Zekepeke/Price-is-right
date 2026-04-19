@@ -30,13 +30,14 @@ supabase: Client = create_client(
 class ScanRequest(BaseModel):
     image_base64: str
     user_id: Optional[str] = None
+    context: Optional[str] = None
 
 
-def identify_item(image_base64: str) -> dict:
+def identify_item(image_base64: str, context: Optional[str] = None) -> dict:
     provider = os.getenv("VISION_PROVIDER", "claude").lower()
     if provider == "gemini":
-        return gemini.identify_item(image_base64)
-    return claude.identify_item(image_base64)
+        return gemini.identify_item(image_base64, context=context)
+    return claude.identify_item(image_base64, context=context)
 
 
 async def get_prices_with_fallback(source: str, query: str, brand: str = "") -> dict:
@@ -83,7 +84,7 @@ async def scan_item(req: ScanRequest):
     )
     image_url = supabase.storage.from_("scan-images").get_public_url(file_name)
 
-    item = identify_item(req.image_base64)
+    item = identify_item(req.image_base64, context=req.context)
     print(f"[VISION] item={item}")
 
     source = item.get("pricing_source", "ebay")

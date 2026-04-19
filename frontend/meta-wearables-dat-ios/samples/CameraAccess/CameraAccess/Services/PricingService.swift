@@ -91,10 +91,12 @@ struct Pricing: Codable, Equatable {
 private struct ScanRequestBody: Encodable {
   let imageBase64: String
   let userId: String?
+  let context: String?
 
   enum CodingKeys: String, CodingKey {
     case imageBase64 = "image_base64"
     case userId = "user_id"
+    case context
   }
 }
 
@@ -161,14 +163,15 @@ final class PricingService {
   /// - Parameters:
   ///   - jpegData: Raw JPEG image bytes from the glasses camera.
   ///   - userId: Optional Supabase user UUID. Pass nil if not authenticated.
-  func scan(jpegData: Data, userId: String? = nil) async throws -> ScanResult {
+  func scan(jpegData: Data, userId: String? = nil, context: String? = nil) async throws -> ScanResult {
     guard let url = URL(string: "\(Self.baseURL)/scan") else {
       throw PricingError.invalidURL
     }
 
     let body = ScanRequestBody(
       imageBase64: jpegData.base64EncodedString(),
-      userId: userId
+      userId: userId,
+      context: context
     )
 
     var request = URLRequest(url: url)

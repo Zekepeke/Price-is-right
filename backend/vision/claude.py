@@ -1,10 +1,10 @@
 import os
 import json
 import anthropic
-from .prompt import PROMPT
+from .prompt import build_prompt
 
 
-def identify_item(image_base64: str) -> dict:
+def identify_item(image_base64: str, context: str | None = None) -> dict:
     client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
     msg = client.messages.create(
         model="claude-sonnet-4-6",
@@ -20,7 +20,7 @@ def identify_item(image_base64: str) -> dict:
                         "data": image_base64,
                     },
                 },
-                {"type": "text", "text": PROMPT},
+                {"type": "text", "text": build_prompt(context)},
             ],
         }],
     )

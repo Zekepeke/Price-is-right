@@ -1,4 +1,4 @@
-PROMPT = """Identify this second-hand or vintage item.
+_BASE_PROMPT = """Identify this second-hand or vintage item.
 Return JSON only, no extra text:
 {
     "category": "e.g. vinyl record / camera / handbag / trading card / sneakers / video game",
@@ -22,3 +22,10 @@ Tailor search_query to the source:
 
 confidence is a float between 0.0 and 1.0 reflecting how certain you are about the identification.
 """
+
+
+def build_prompt(context: str | None = None) -> str:
+    prompt = _BASE_PROMPT
+    if context:
+        prompt += f"\n\nAdditional context from the user: {context}"
+    return prompt

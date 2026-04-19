@@ -86,6 +86,7 @@ final class StreamSessionViewModel: ObservableObject {
 
     speechManager.onTriggerDetected = { [weak self] in
       guard let self else { return }
+      self.lastSpeechContext = self.speechManager.lastContext
       self.speechManager.pauseListening()
       self.capturePhoto()
     }
@@ -179,25 +180,26 @@ final class StreamSessionViewModel: ObservableObject {
     scanResult = nil
     scanError = nil
     lastPhotoData = nil
+    lastSpeechContext = nil
     speechManager.resumeListening()
   }
 
   func retryScan() {
     guard let jpegData = lastPhotoData else { return }
     Task {
-      await runScan(jpegData: jpegData)
+      await runScan(jpegData: jpegData, context: lastSpeechContext)
     }
   }
 
   // MARK: - Scan Pipeline
 
   /// Runs the full scan → UI update pipeline.
-  private func runScan(jpegData: Data) async {
+  private func runScan(jpegData: Data, context: String? = nil) async {
     scanError = nil
     isScanning = true
 
     do {
-      let result = try await pricingService.scan(jpegData: jpegData)
+      let result = try await pricingService.scan(jpegData: jpegData, context: context)
       print("[PIR] Audio: received scan result, audioData present = \(result.audioData != nil)")
 
       scanResult = result
@@ -349,8 +351,9 @@ final class StreamSessionViewModel: ObservableObject {
       showPhotoPreview = true
       lastPhotoData = data.data
       // Kick off the scan → verdict → audio pipeline
+      let context = lastSpeechContext
       Task {
-        await runScan(jpegData: data.data)
+        await runScan(jpegData: data.data, context: context)
       }
     } else {
       // Can't decode the photo — nothing to show, so resume immediately
