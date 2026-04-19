@@ -2,6 +2,7 @@ import os
 import uuid
 import base64
 from typing import Optional
+import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -31,6 +32,61 @@ class ScanRequest(BaseModel):
     image_base64: str
     user_id: Optional[str] = None
     context: Optional[str] = None
+
+
+async def extract_barcode(image_base64: str) -> Optional[str]:
+    """Ask the vision model if there's a barcode/ISBN in the image. Returns the number or None."""
+    provider = os.getenv("VISION_PROVIDER", "claude").lower()
+    if provider == "gemini":
+        return gemini.extract_barcode(image_base64)
+    return claude.extract_barcode(image_base64)
+
+
+async def lookup_barcode(barcode: str) -> Optional[dict]:
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        try:
+            r = await client.get(f"https://world.openfoodfacts.org/api/v0/product/{barcode}.json")
+            data = r.json()
+            if data.get("status") == 1:
+                p = data["product"]
+                name = p.get("product_name", "")
+                brand = p.get("brands", "").split(",")[0].strip()
+                if name:
+                    return {"category": "packaged food", "brand": brand, "condition": "new",
+                            "pricing_source": "ebay", "search_query": f"{brand} {name}".strip(),
+                            "confidence": 0.99}
+        except Exception:
+            pass
+
+        try:
+            r = await client.get(f"https://openlibrary.org/api/books?bibkeys=ISBN:{barcode}&format=json&jscmd=data")
+            data = r.json()
+            if data:
+                book = list(data.values())[0]
+                title = book.get("title", "")
+                authors = book.get("authors", [{}])
+                author = authors[0].get("name", "") if authors else ""
+                if title:
+                    return {"category": "book", "brand": author, "condition": "good",
+                            "pricing_source": "ebay", "search_query": f"{title} {author}".strip(),
+                            "confidence": 0.99}
+        except Exception:
+            pass
+
+        try:
+            r = await client.get(f"https://api.upcitemdb.com/prod/trial/lookup?upc={barcode}")
+            data = r.json()
+            items = data.get("items", [])
+            if items:
+                item = items[0]
+                return {"category": item.get("category", ""), "brand": item.get("brand", ""),
+                        "condition": "new", "pricing_source": "ebay",
+                        "search_query": item.get("title", ""),
+                        "confidence": 0.99}
+        except Exception:
+            pass
+
+    return None
 
 
 def identify_item(image_base64: str, context: Optional[str] = None) -> dict:
@@ -84,7 +140,16 @@ async def scan_item(req: ScanRequest):
     )
     image_url = supabase.storage.from_("scan-images").get_public_url(file_name)
 
-    item = identify_item(req.image_base64, context=req.context)
+    item = None
+    barcode = await extract_barcode(req.image_base64)
+    if barcode:
+        print(f"[BARCODE] detected: {barcode}")
+        item = await lookup_barcode(barcode)
+        if item:
+            print(f"[BARCODE] resolved: {item}")
+
+    if not item:
+        item = identify_item(req.image_base64, context=req.context)
     print(f"[VISION] item={item}")
 
     source = item.get("pricing_source", "ebay")
