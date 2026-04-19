@@ -37,11 +37,15 @@ final class StreamSessionViewModel: ObservableObject {
   @Published var isScanning: Bool = false
   @Published var scanError: String?
 
+  /// True while the TTS verdict audio is playing through the glasses speaker.
+  @Published var isPlayingAudio: Bool = false
+
   @Published var hasActiveDevice: Bool = false
   @Published var isDeviceSessionReady: Bool = false
 
   private var lastPhotoData: Data?
   private let pricingService: PricingService
+  private let audioManager: AudioSessionManager
 
   var isStreaming: Bool { streamingStatus != .stopped }
 
@@ -59,9 +63,14 @@ final class StreamSessionViewModel: ObservableObject {
 
   // MARK: - Init
 
-  init(wearables: WearablesInterface, pricingService: PricingService = .shared) {
+  init(
+    wearables: WearablesInterface,
+    pricingService: PricingService = .shared,
+    audioManager: AudioSessionManager = .shared
+  ) {
     self.wearables = wearables
     self.pricingService = pricingService
+    self.audioManager = audioManager
     self.sessionManager = DeviceSessionManager(wearables: wearables)
 
     // Forward session manager state to this ViewModel for SwiftUI binding
@@ -125,36 +134,66 @@ final class StreamSessionViewModel: ObservableObject {
   }
 
   func dismissPhotoPreview() {
+    // Stop any audio that might still be playing when dismissing
+    audioManager.stop()
     showPhotoPreview = false
     capturedPhoto = nil
     scanResult = nil
     scanError = nil
+    isPlayingAudio = false
     lastPhotoData = nil
   }
 
   func retryScan() {
     guard let jpegData = lastPhotoData else { return }
-    runScan(jpegData: jpegData)
+    Task {
+      await runScan(jpegData: jpegData)
+    }
   }
 
-  private func runScan(jpegData: Data) {
+  // MARK: - Scan Pipeline
+
+  /// Runs the full scan → UI update → audio playback pipeline.
+  ///
+  /// Sequencing guarantee: the `scanResult` property is set (triggering UI
+  /// update) BEFORE audio playback begins. This is naturally enforced by
+  /// async/await — the `audioManager.play()` call suspends after the
+  /// synchronous property assignment, so SwiftUI picks up the state change
+  /// on the next run loop iteration before playback starts.
+  private func runScan(jpegData: Data) async {
     scanError = nil
     isScanning = true
-    Task { [weak self] in
-      guard let self else { return }
-      do {
-        let result = try await self.pricingService.scan(jpegData: jpegData)
-        await MainActor.run {
-          self.scanResult = result
-          self.isScanning = false
+
+    do {
+      let result = try await pricingService.scan(jpegData: jpegData)
+
+      // 1. Update UI state — this is a synchronous assignment on @MainActor,
+      //    so SwiftUI will render the verdict card before we proceed to audio.
+      scanResult = result
+      isScanning = false
+
+      // 2. Play TTS audio through the glasses speaker (if the backend provided it).
+      //    This runs AFTER the UI has updated because `play()` is an async call
+      //    that suspends at the await point, yielding the main actor back to
+      //    SwiftUI's rendering pass.
+      if let mp3Data = result.audioData {
+        isPlayingAudio = true
+        do {
+          try await audioManager.play(mp3Data: mp3Data)
+        } catch is CancellationError {
+          // User dismissed the verdict view while audio was playing — expected.
+        } catch {
+          // Audio playback failed — log but don't show an error alert.
+          // The verdict is already visible; audio is supplementary.
+          print("[Audio] Playback error: \(error.localizedDescription)")
         }
-      } catch {
-        await MainActor.run {
-          self.scanError = (error as? LocalizedError)?.errorDescription
-            ?? error.localizedDescription
-          self.isScanning = false
-        }
+        isPlayingAudio = false
       }
+    } catch {
+      scanResult = nil
+      isScanning = false
+      scanError = (error as? LocalizedError)?.errorDescription
+        ?? error.localizedDescription
     }
   }
 
@@ -236,7 +275,10 @@ final class StreamSessionViewModel: ObservableObject {
       capturedPhoto = image
       showPhotoPreview = true
       lastPhotoData = data.data
-      runScan(jpegData: data.data)
+      // Kick off the scan → verdict → audio pipeline
+      Task {
+        await runScan(jpegData: data.data)
+      }
     }
   }
 

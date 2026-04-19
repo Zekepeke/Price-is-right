@@ -8,17 +8,62 @@
 
 import Foundation
 
+// MARK: - Response Models
+
+/// Top-level response from POST /scan.
+/// Every field matches the backend JSON schema; optional fields gracefully
+/// degrade when the backend omits them.
 struct ScanResult: Codable, Equatable {
+  let scanId: String
   let item: Item
   let pricing: Pricing
   let verdict: String
+  let imageUrl: String?
+  let summary: String?
+  let audio: AudioPayload?
+
+  // Backend uses snake_case; Swift uses camelCase.
+  enum CodingKeys: String, CodingKey {
+    case scanId = "scan_id"
+    case item, pricing, verdict
+    case imageUrl = "image_url"
+    case summary, audio
+  }
+
+  /// Convenience: decodes `audio.data` (base64 string) into raw MP3 bytes.
+  /// Returns nil if no audio payload or if base64 decoding fails.
+  var audioData: Data? {
+    guard let base64String = audio?.data else { return nil }
+    return Data(base64Encoded: base64String)
+  }
+}
+
+/// Audio payload embedded in the scan response.
+struct AudioPayload: Codable, Equatable {
+  let data: String          // base64-encoded MP3 bytes
+  let contentType: String   // e.g. "audio/mpeg"
+
+  enum CodingKeys: String, CodingKey {
+    case data
+    case contentType = "content_type"
+  }
 }
 
 struct Item: Codable, Equatable {
-  let category: String
+  let category: String?
   let brand: String?
-  let condition: String
-  let ebay_search: String
+  let condition: String?
+  let confidence: Double?
+  let pricingSource: String?
+  let searchQuery: String?
+  let ebaySearch: String?
+
+  enum CodingKeys: String, CodingKey {
+    case category, brand, condition, confidence
+    case pricingSource = "pricing_source"
+    case searchQuery = "search_query"
+    case ebaySearch = "ebay_search"
+  }
 }
 
 struct Pricing: Codable, Equatable {
@@ -26,7 +71,32 @@ struct Pricing: Codable, Equatable {
   let high: Double
   let median: Double
   let count: Int
+  let requestedSource: String?
+  let actualSource: String?
+  let usedFallback: Bool?
+
+  enum CodingKeys: String, CodingKey {
+    case low, high, median, count
+    case requestedSource = "requested_source"
+    case actualSource = "actual_source"
+    case usedFallback = "used_fallback"
+  }
 }
+
+// MARK: - Request Model
+
+/// JSON body sent to POST /scan.
+private struct ScanRequestBody: Encodable {
+  let imageBase64: String
+  let userId: String?
+
+  enum CodingKeys: String, CodingKey {
+    case imageBase64 = "image_base64"
+    case userId = "user_id"
+  }
+}
+
+// MARK: - Error Types
 
 private struct BackendErrorResponse: Codable {
   let detail: String?
@@ -62,6 +132,8 @@ enum PricingError: LocalizedError {
   }
 }
 
+// MARK: - Service
+
 final class PricingService {
   static let shared = PricingService()
 
@@ -81,13 +153,21 @@ final class PricingService {
     self.encoder = JSONEncoder()
   }
 
-  func scan(jpegData: Data) async throws -> ScanResult {
+  /// Sends a captured JPEG to the backend and returns the full scan result
+  /// including verdict, pricing, summary text, and optional TTS audio.
+  ///
+  /// - Parameters:
+  ///   - jpegData: Raw JPEG image bytes from the glasses camera.
+  ///   - userId: Optional Supabase user UUID. Pass nil if not authenticated.
+  func scan(jpegData: Data, userId: String? = nil) async throws -> ScanResult {
     guard let url = URL(string: "\(Self.baseURL)/scan") else {
       throw PricingError.invalidURL
     }
 
-    let base64 = jpegData.base64EncodedString()
-    let body: [String: String] = ["image_base64": base64]
+    let body = ScanRequestBody(
+      imageBase64: jpegData.base64EncodedString(),
+      userId: userId
+    )
 
     var request = URLRequest(url: url)
     request.httpMethod = "POST"

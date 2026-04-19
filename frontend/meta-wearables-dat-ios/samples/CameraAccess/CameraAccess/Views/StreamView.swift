@@ -66,6 +66,7 @@ struct StreamView: View {
           isScanning: viewModel.isScanning,
           scanResult: viewModel.scanResult,
           scanError: viewModel.scanError,
+          isPlayingAudio: viewModel.isPlayingAudio,
           onRetry: {
             viewModel.retryScan()
           },

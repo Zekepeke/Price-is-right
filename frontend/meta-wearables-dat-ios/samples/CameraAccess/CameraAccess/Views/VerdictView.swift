@@ -4,6 +4,9 @@
  * Presented after a photo is captured from the Meta wearable. Shows the
  * captured image, item identification, pricing, and a color-coded verdict
  * pill. Handles the loading and error states of the /scan request.
+ *
+ * Also displays the LLM-generated summary text and an audio playback
+ * indicator when the TTS verdict is playing through the glasses speaker.
  */
 
 import SwiftUI
@@ -13,6 +16,7 @@ struct VerdictView: View {
   let isScanning: Bool
   let scanResult: ScanResult?
   let scanError: String?
+  let isPlayingAudio: Bool
   let onRetry: () -> Void
   let onDismiss: () -> Void
 
@@ -137,13 +141,46 @@ struct VerdictView: View {
   private func resultCard(_ result: ScanResult) -> some View {
     VStack(spacing: 14) {
       itemRow(result.item)
+
       Divider().background(Color.white.opacity(0.2))
+
       pricingRow(result.pricing)
+
+      // LLM-generated summary text (conversational verdict explanation)
+      if let summary = result.summary, !summary.isEmpty {
+        Text(summary)
+          .font(.subheadline)
+          .foregroundColor(.white.opacity(0.9))
+          .multilineTextAlignment(.leading)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .padding(.vertical, 4)
+      }
+
       verdictPill(result.verdict)
+
+      // Audio playback indicator — shows when TTS is playing through glasses
+      if isPlayingAudio {
+        audioIndicator
+      }
     }
     .padding(20)
     .frame(maxWidth: .infinity)
     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+  }
+
+  /// Animated speaker icon indicating TTS is playing through the glasses.
+  private var audioIndicator: some View {
+    HStack(spacing: 6) {
+      Image(systemName: "speaker.wave.2.fill")
+        .foregroundColor(.white.opacity(0.7))
+        .symbolEffect(.variableColor.iterative, options: .repeating)
+      Text("Playing through glasses")
+        .font(.caption)
+        .foregroundColor(.white.opacity(0.7))
+    }
+    .padding(.top, 4)
+    .transition(.opacity.combined(with: .scale(scale: 0.9)))
+    .animation(.easeInOut(duration: 0.3), value: isPlayingAudio)
   }
 
   private func itemRow(_ item: Item) -> some View {
@@ -152,9 +189,10 @@ struct VerdictView: View {
         .font(.title3.bold())
         .foregroundColor(.white)
       HStack(spacing: 8) {
-        Text(item.category.capitalized)
+        // Safely handle nullable category and condition
+        Text((item.category ?? "Unknown").capitalized)
         Text("·")
-        Text(item.condition.capitalized)
+        Text((item.condition ?? "Unknown").capitalized)
       }
       .font(.subheadline)
       .foregroundColor(.white.opacity(0.75))
@@ -197,9 +235,10 @@ struct VerdictView: View {
 
   private func displayTitle(for item: Item) -> String {
     if let brand = item.brand, !brand.isEmpty, brand.lowercased() != "null" {
-      return "\(brand) \(item.category.capitalized)"
+      let category = (item.category ?? "Item").capitalized
+      return "\(brand) \(category)"
     }
-    return item.category.capitalized
+    return (item.category ?? "Unknown Item").capitalized
   }
 
   private func formatPrice(_ value: Double) -> String {
