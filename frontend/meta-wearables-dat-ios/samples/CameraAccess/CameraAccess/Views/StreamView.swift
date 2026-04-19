@@ -75,6 +75,13 @@ struct StreamView: View {
         )
       }
     }
+    .onChange(of: viewModel.scanResult) { result in
+      guard result != nil else { return }
+      DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
+        guard viewModel.showPhotoPreview else { return }
+        viewModel.dismissPhotoPreview()
+      }
+    }
   }
 }
 

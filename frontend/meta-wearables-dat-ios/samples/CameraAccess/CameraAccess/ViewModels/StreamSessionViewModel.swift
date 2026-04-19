@@ -43,6 +43,7 @@ final class StreamSessionViewModel: ObservableObject {
   @Published var isListening: Bool = false
 
   private var lastPhotoData: Data?
+  private var lastSpeechContext: String?
   private let pricingService: PricingService
   private var audioPlayer: AVAudioPlayer?
 
@@ -84,7 +85,9 @@ final class StreamSessionViewModel: ObservableObject {
       .assign(to: &$isListening)
 
     speechManager.onTriggerDetected = { [weak self] in
-      self?.capturePhoto()
+      guard let self else { return }
+      self.speechManager.pauseListening()
+      self.capturePhoto()
     }
 
     // Auto-start streaming whenever the device session becomes ready,
@@ -141,8 +144,15 @@ final class StreamSessionViewModel: ObservableObject {
   }
 
   func capturePhoto() {
-    guard !isCapturingPhoto, streamingStatus == .streaming else {
+    // Prevent triggering while a capture or scan is already in progress
+    guard !isCapturingPhoto && scanResult == nil else {
+      print("[PIR] capture blocked — already capturing or showing result")
+      speechManager.resumeListening()
+      return
+    }
+    guard streamingStatus == .streaming else {
       showPhotoCaptureError = true
+      speechManager.resumeListening()
       return
     }
     isCapturingPhoto = true
@@ -150,6 +160,7 @@ final class StreamSessionViewModel: ObservableObject {
     if !success {
       isCapturingPhoto = false
       showPhotoCaptureError = true
+      speechManager.resumeListening()
     }
   }
 
@@ -168,6 +179,7 @@ final class StreamSessionViewModel: ObservableObject {
     scanResult = nil
     scanError = nil
     lastPhotoData = nil
+    speechManager.resumeListening()
   }
 
   func retryScan() {
@@ -294,11 +306,13 @@ final class StreamSessionViewModel: ObservableObject {
     case .stopped:
       currentVideoFrame = nil
       streamingStatus = .stopped
+      UIApplication.shared.isIdleTimerDisabled = false
       speechManager.stopListening()
     case .waitingForDevice, .starting, .stopping, .paused:
       streamingStatus = .waiting
     case .streaming:
       streamingStatus = .streaming
+      UIApplication.shared.isIdleTimerDisabled = true
       speechManager.startListening()
     }
   }
@@ -338,6 +352,10 @@ final class StreamSessionViewModel: ObservableObject {
       Task {
         await runScan(jpegData: data.data)
       }
+    } else {
+      // Can't decode the photo — nothing to show, so resume immediately
+      print("[PIR] handlePhotoData: UIImage decoding failed — resuming speech")
+      speechManager.resumeListening()
     }
   }
 
