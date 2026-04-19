@@ -1,40 +1,24 @@
-PROMPT = """You are a resale expert helping estimate market value from one photo.
-
-Task:
-1) Identify the primary item in the image (ignore people/background).
-2) Infer likely brand/model when visible.
-3) Estimate condition for resale.
-4) Build a strong eBay search query that maximizes comparable listings.
-
-Return STRICT JSON only (no markdown, no prose) with exactly these keys:
+PROMPT = """Identify this second-hand or vintage item.
+Return JSON only, no extra text:
 {
-<<<<<<< HEAD
-  "category": "short normalized category (e.g. sunglasses, camera, handbag, sneakers, watch)",
-  "brand": "brand name string or null",
-  "condition": "excellent | good | fair | poor",
-  "ebay_search": "query string for similar sold/listed items"
-}
-
-Guidelines:
-- If uncertain, prefer conservative, generic identification over guessing.
-- If no reliable brand is visible, set "brand" to null.
-- "category" should be broad and searchable, not overly specific jargon.
-- "condition" rubric:
-  - excellent: minimal/no visible wear
-  - good: light normal wear
-  - fair: noticeable wear/scuffs but functional
-  - poor: heavy wear/damage or likely repair needed
-- Build "ebay_search" using the most useful attributes in this priority:
-  brand -> product type -> model/style -> color/material -> key visible traits.
-- Do not include words like "photo", "image", "used", "for sale", or punctuation spam.
-- Keep "ebay_search" concise (about 4-10 terms).
-"""
-=======
-    "category": "e.g. vinyl record / camera / handbag",
-    "brand": "brand name or null",
+    "category": "e.g. vinyl record / camera / handbag / trading card / sneakers / video game",
+    "brand": "brand, artist, game franchise, or null",
     "condition": "excellent | good | fair | poor",
-    "ebay_search": "optimized eBay search string",
+    "pricing_source": "ebay | discogs | tcg",
+    "search_query": "optimized search string for the chosen source",
     "confidence": 0.0
 }
-confidence is a float between 0.0 and 1.0 reflecting how certain you are about the identification."""
->>>>>>> main
+
+Rules for pricing_source (follow strictly):
+- vinyl records, CDs, cassettes, any music media -> "discogs"
+- trading cards (Pokemon, Magic: The Gathering, Yu-Gi-Oh, Disney Lorcana, One Piece TCG, Digimon, sports cards, any TCG/CCG) -> "tcg"
+- EVERYTHING else -> "ebay"
+  This includes: clothing, shoes, sneakers, video games, consoles, electronics, cameras, handbags, furniture, toys, books, LEGO, Funko Pops, kitchenware, tools, sporting goods, jewelry, watches, art, antiques, and any other item.
+
+Tailor search_query to the source:
+- discogs: "artist album format" (e.g. "Beatles Abbey Road vinyl", "Miles Davis Kind of Blue CD")
+- tcg: "card name set name set number" (e.g. "Charizard Base Set 4/102", "Black Lotus Alpha")
+- ebay: descriptive query with brand + model + key details (e.g. "Nike Air Jordan 1 Chicago size 10", "Nintendo 64 console with cables", "Canon AE-1 35mm film camera")
+
+confidence is a float between 0.0 and 1.0 reflecting how certain you are about the identification.
+"""

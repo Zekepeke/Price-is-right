@@ -11,13 +11,7 @@ async def get_prices(query: str) -> dict:
             auth=(os.environ["EBAY_CLIENT_ID"], os.environ["EBAY_CLIENT_SECRET"]),
         )
         token_res.raise_for_status()
-<<<<<<< HEAD
-        token = token_res.json().get("access_token")
-        if not token:
-            raise RuntimeError("eBay token response missing access_token")
-=======
         token = token_res.json()["access_token"]
->>>>>>> main
 
         res = await client.get(
             "https://api.ebay.com/buy/browse/v1/item_summary/search",
@@ -26,18 +20,6 @@ async def get_prices(query: str) -> dict:
         )
         res.raise_for_status()
         items = res.json().get("itemSummaries", [])
-<<<<<<< HEAD
-        prices = []
-        for item in items:
-            value = item.get("price", {}).get("value")
-            if value is None:
-                continue
-            try:
-                prices.append(float(value))
-            except (TypeError, ValueError):
-                continue
-        prices.sort()
-=======
         prices = sorted(
             float(i["price"]["value"])
             for i in items
@@ -49,11 +31,10 @@ async def get_prices(query: str) -> dict:
 
         mid = len(prices) // 2
         median = (prices[mid - 1] + prices[mid]) / 2 if len(prices) % 2 == 0 else prices[mid]
->>>>>>> main
 
         return {
-            "low": prices[0],
-            "high": prices[-1],
+            "low": round(prices[0], 2),
+            "high": round(prices[-1], 2),
             "median": round(median, 2),
             "count": len(prices),
         }
