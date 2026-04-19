@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 from supabase import create_client, Client
 from vision import claude, gemini
-from pricing.ebay import get_prices
+from pricing import ebay, discogs, tcg
 
 load_dotenv()
 app = FastAPI()
