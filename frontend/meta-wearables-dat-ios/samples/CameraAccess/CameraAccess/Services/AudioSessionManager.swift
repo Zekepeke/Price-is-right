@@ -9,7 +9,7 @@ enum AudioSessionManager {
       try AVAudioSession.sharedInstance().setCategory(
         .playAndRecord,
         mode: .default,
-        options: [.defaultToSpeaker, .allowBluetooth]
+        options: [.defaultToSpeaker, .allowBluetooth, .allowBluetoothA2DP]
       )
       try AVAudioSession.sharedInstance().setActive(true)
     } catch {

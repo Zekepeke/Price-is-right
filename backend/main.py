@@ -8,7 +8,8 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 from supabase import create_client, Client
 from vision import claude, gemini
-from pricing.ebay import get_prices
+from pricing import ebay, discogs, tcg
+from tts import elevenlabs
 
 load_dotenv()
 app = FastAPI()
@@ -99,6 +100,14 @@ async def scan_item(req: ScanRequest):
         median = pricing["median"]
         verdict = "Great deal" if median < 20 else "Fair price" if median < 60 else "Overpriced"
 
+    spoken_text = f"{verdict}. Price range: ${pricing['low']:.2f} to ${pricing['high']:.2f}"
+    audio_base64 = None
+    try:
+        audio_bytes = await elevenlabs.synthesize(spoken_text)
+        audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
+    except Exception as e:
+        print(f"[TTS] ElevenLabs failed, skipping audio: {e}")
+
     scan_row = supabase.table("scans").insert({
         "user_id": req.user_id,
         "image_url": image_url,
@@ -127,4 +136,5 @@ async def scan_item(req: ScanRequest):
         "pricing": pricing,
         "verdict": verdict,
         "image_url": image_url,
+        "audio": {"data": audio_base64, "content_type": "audio/mpeg"} if audio_base64 else None,
     }

@@ -3,7 +3,7 @@ import httpx
 
 
 async def get_prices(query: str) -> dict:
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=15.0) as client:
         token_res = await client.post(
             "https://api.ebay.com/identity/v1/oauth2/token",
             data="grant_type=client_credentials&scope=https://api.ebay.com/oauth/api_scope",

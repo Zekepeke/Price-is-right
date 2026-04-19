@@ -6,6 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+import AVFoundation
 import Combine
 import MWDATCamera
 import MWDATCore
@@ -43,6 +44,7 @@ final class StreamSessionViewModel: ObservableObject {
 
   private var lastPhotoData: Data?
   private let pricingService: PricingService
+  private var audioPlayer: AVAudioPlayer?
 
   var isStreaming: Bool { streamingStatus != .stopped }
 
@@ -184,15 +186,41 @@ final class StreamSessionViewModel: ObservableObject {
 
     do {
       let result = try await pricingService.scan(jpegData: jpegData)
+      print("[PIR] Audio: received scan result, audioData present = \(result.audioData != nil)")
 
-      // Update UI state
       scanResult = result
       isScanning = false
+
+      playAudio(result)
     } catch {
       scanResult = nil
       isScanning = false
       scanError = (error as? LocalizedError)?.errorDescription
         ?? error.localizedDescription
+    }
+  }
+
+  private func playAudio(_ result: ScanResult) {
+    guard let audioData = result.audioData else {
+      print("[PIR] Audio: no audioData in result — skipping playback")
+      return
+    }
+    print("[PIR] Audio: decoded \(audioData.count) bytes from base64")
+
+    do {
+      let session = AVAudioSession.sharedInstance()
+      try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetooth, .allowBluetoothA2DP])
+      try session.setActive(true)
+      print("[PIR] Audio: AVAudioSession configured and activated")
+
+      let player = try AVAudioPlayer(data: audioData)
+      audioPlayer = player  // retain reference
+      player.prepareToPlay()
+      print("[PIR] Audio: AVAudioPlayer created, calling play()")
+      let started = player.play()
+      print("[PIR] Audio: play() returned \(started)")
+    } catch {
+      print("[PIR] Audio: error — \(error)")
     }
   }
 
