@@ -16,7 +16,6 @@ struct VerdictView: View {
   let isScanning: Bool
   let scanResult: ScanResult?
   let scanError: String?
-  let isPlayingAudio: Bool
   let onRetry: () -> Void
   let onDismiss: () -> Void
 
@@ -157,30 +156,10 @@ struct VerdictView: View {
       }
 
       verdictPill(result.verdict)
-
-      // Audio playback indicator — shows when TTS is playing through glasses
-      if isPlayingAudio {
-        audioIndicator
-      }
     }
     .padding(20)
     .frame(maxWidth: .infinity)
     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
-  }
-
-  /// Animated speaker icon indicating TTS is playing through the glasses.
-  private var audioIndicator: some View {
-    HStack(spacing: 6) {
-      Image(systemName: "speaker.wave.2.fill")
-        .foregroundColor(.white.opacity(0.7))
-        .symbolEffect(.variableColor.iterative, options: .repeating)
-      Text("Playing through glasses")
-        .font(.caption)
-        .foregroundColor(.white.opacity(0.7))
-    }
-    .padding(.top, 4)
-    .transition(.opacity.combined(with: .scale(scale: 0.9)))
-    .animation(.easeInOut(duration: 0.3), value: isPlayingAudio)
   }
 
   private func itemRow(_ item: Item) -> some View {

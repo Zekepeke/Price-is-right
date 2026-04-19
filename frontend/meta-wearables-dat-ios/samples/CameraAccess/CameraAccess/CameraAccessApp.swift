@@ -33,6 +33,8 @@ struct CameraAccessApp: App {
   @StateObject private var wearablesViewModel: WearablesViewModel
 
   init() {
+    AudioSessionManager.configure()
+
     do {
       try Wearables.configure()
     } catch {

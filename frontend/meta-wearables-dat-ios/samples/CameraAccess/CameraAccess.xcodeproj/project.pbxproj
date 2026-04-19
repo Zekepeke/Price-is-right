@@ -37,6 +37,7 @@
 		E6FD3BCE2EB4D53A00E7FE5D /* NonStreamView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6FD3BCD2EB4D53A00E7FE5D /* NonStreamView.swift */; };
 		FEEE00012F95000100000001 /* DeviceSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEEE00002F95000100000001 /* DeviceSessionManager.swift */; };
 		FEEE01012F95000200000001 /* PricingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEEE01002F95000200000001 /* PricingService.swift */; };
+		FEEE01052F95000300000001 /* AudioSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEEE01042F95000300000001 /* AudioSessionManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -102,6 +103,7 @@
 		E6FD3BCD2EB4D53A00E7FE5D /* NonStreamView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NonStreamView.swift; sourceTree = "<group>"; };
 		FEEE00002F95000100000001 /* DeviceSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceSessionManager.swift; sourceTree = "<group>"; };
 		FEEE01002F95000200000001 /* PricingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PricingService.swift; sourceTree = "<group>"; };
+		FEEE01042F95000300000001 /* AudioSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSessionManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -205,6 +207,7 @@
 		FEEE01022F95000200000001 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				FEEE01042F95000300000001 /* AudioSessionManager.swift */,
 				FEEE01002F95000200000001 /* PricingService.swift */,
 			);
 			path = Services;
@@ -417,6 +420,7 @@
 				8FFD5FF62E8422580035E446 /* CustomButton.swift in Sources */,
 				E6FD3BCE2EB4D53A00E7FE5D /* NonStreamView.swift in Sources */,
 				FEEE01012F95000200000001 /* PricingService.swift in Sources */,
+				FEEE01052F95000300000001 /* AudioSessionManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

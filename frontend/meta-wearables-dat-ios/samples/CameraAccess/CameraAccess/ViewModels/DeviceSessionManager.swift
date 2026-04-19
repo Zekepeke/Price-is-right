@@ -37,41 +37,49 @@ final class DeviceSessionManager: ObservableObject {
   /// Waits for the session to reach .started state before returning.
   func getSession() async -> DeviceSession? {
     if let session = deviceSession, session.state == .started {
-      // Ensure isReady reflects the actual state
+      print("[PIR] DeviceSessionManager.getSession: reusing existing started session")
       isReady = true
       return session
     }
 
-    // Session needs to be created or is stopped
+    if let existing = deviceSession {
+      print("[PIR] DeviceSessionManager.getSession: existing session state = \(existing.state)")
+    }
+
     if deviceSession?.state == .stopped {
+      print("[PIR] DeviceSessionManager.getSession: clearing stopped session")
       deviceSession = nil
     }
 
     guard deviceSession == nil else {
-      // Session exists but not in .started state - wait or return nil
+      print("[PIR] DeviceSessionManager.getSession: session exists but not started — returning nil")
       return nil
     }
 
+    print("[PIR] DeviceSessionManager.getSession: creating new DeviceSession")
     do {
       let session = try wearables.createSession(deviceSelector: deviceSelector)
       deviceSession = session
 
       let stateStream = session.stateStream()
+      print("[PIR] DeviceSessionManager.getSession: calling session.start()")
       try session.start()
 
-      // Wait for .started state
       for await state in stateStream {
+        print("[PIR] DeviceSession state → \(state)")
         if state == .started {
           isReady = true
           startStateObserver(for: session)
           return session
         } else if state == .stopped {
+          print("[PIR] DeviceSessionManager.getSession: session stopped before reaching .started")
           isReady = false
           deviceSession = nil
           return nil
         }
       }
     } catch {
+      print("[PIR] DeviceSessionManager.getSession: error — \(error)")
       isReady = false
       deviceSession = nil
     }
@@ -84,10 +92,13 @@ final class DeviceSessionManager: ObservableObject {
     deviceMonitorTask = Task { [weak self] in
       guard let self else { return }
       for await device in deviceSelector.activeDeviceStream() {
-        hasActiveDevice = device != nil
-        if device != nil {
+        if let device {
+          print("[PIR] DeviceSessionManager: active device appeared — \(device)")
+          hasActiveDevice = true
           _ = await getSession()
         } else {
+          print("[PIR] DeviceSessionManager: active device lost")
+          hasActiveDevice = false
           handleDeviceLost()
         }
       }
@@ -99,10 +110,11 @@ final class DeviceSessionManager: ObservableObject {
     stateObserverTask = Task { [weak self] in
       for await state in session.stateStream() {
         guard let self else { return }
+        print("[PIR] DeviceSession (observer) state → \(state)")
         if state == .started {
           isReady = true
         } else if state == .stopped {
-          // DeviceSession.stopped is terminal - clean up
+          print("[PIR] DeviceSessionManager: DeviceSession stopped — clearing")
           isReady = false
           deviceSession = nil
           return
@@ -112,6 +124,7 @@ final class DeviceSessionManager: ObservableObject {
   }
 
   private func handleDeviceLost() {
+    print("[PIR] DeviceSessionManager.handleDeviceLost: stopping session")
     stateObserverTask?.cancel()
     stateObserverTask = nil
     deviceSession?.stop()

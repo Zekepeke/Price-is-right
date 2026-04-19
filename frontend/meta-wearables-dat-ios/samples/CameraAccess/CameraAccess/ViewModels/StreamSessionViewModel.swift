@@ -37,15 +37,11 @@ final class StreamSessionViewModel: ObservableObject {
   @Published var isScanning: Bool = false
   @Published var scanError: String?
 
-  /// True while the TTS verdict audio is playing through the glasses speaker.
-  @Published var isPlayingAudio: Bool = false
-
   @Published var hasActiveDevice: Bool = false
   @Published var isDeviceSessionReady: Bool = false
 
   private var lastPhotoData: Data?
   private let pricingService: PricingService
-  private let audioManager: AudioSessionManager
 
   var isStreaming: Bool { streamingStatus != .stopped }
 
@@ -65,12 +61,10 @@ final class StreamSessionViewModel: ObservableObject {
 
   init(
     wearables: WearablesInterface,
-    pricingService: PricingService = .shared,
-    audioManager: AudioSessionManager = .shared
+    pricingService: PricingService = .shared
   ) {
     self.wearables = wearables
     self.pricingService = pricingService
-    self.audioManager = audioManager
     self.sessionManager = DeviceSessionManager(wearables: wearables)
 
     // Forward session manager state to this ViewModel for SwiftUI binding
@@ -85,18 +79,27 @@ final class StreamSessionViewModel: ObservableObject {
   // MARK: - Public API
 
   func handleStartStreaming() async {
+    guard streamingStatus == .stopped else {
+      print("[PIR] handleStartStreaming: skipped — already in status \(streamingStatus)")
+      return
+    }
+    print("[PIR] handleStartStreaming: checking camera permission")
     let permission = Permission.camera
     do {
       var status = try await wearables.checkPermissionStatus(permission)
+      print("[PIR] handleStartStreaming: permission status = \(status)")
       if status != .granted {
         status = try await wearables.requestPermission(permission)
+        print("[PIR] handleStartStreaming: after request, permission status = \(status)")
       }
       guard status == .granted else {
+        print("[PIR] handleStartStreaming: permission denied, aborting")
         showError("Permission denied")
         return
       }
       await startSession()
     } catch {
+      print("[PIR] handleStartStreaming: permission error — \(error)")
       showError("Permission error: \(error.description)")
     }
   }
@@ -134,13 +137,10 @@ final class StreamSessionViewModel: ObservableObject {
   }
 
   func dismissPhotoPreview() {
-    // Stop any audio that might still be playing when dismissing
-    audioManager.stop()
     showPhotoPreview = false
     capturedPhoto = nil
     scanResult = nil
     scanError = nil
-    isPlayingAudio = false
     lastPhotoData = nil
   }
 
@@ -153,13 +153,7 @@ final class StreamSessionViewModel: ObservableObject {
 
   // MARK: - Scan Pipeline
 
-  /// Runs the full scan → UI update → audio playback pipeline.
-  ///
-  /// Sequencing guarantee: the `scanResult` property is set (triggering UI
-  /// update) BEFORE audio playback begins. This is naturally enforced by
-  /// async/await — the `audioManager.play()` call suspends after the
-  /// synchronous property assignment, so SwiftUI picks up the state change
-  /// on the next run loop iteration before playback starts.
+  /// Runs the full scan → UI update pipeline.
   private func runScan(jpegData: Data) async {
     scanError = nil
     isScanning = true
@@ -167,28 +161,9 @@ final class StreamSessionViewModel: ObservableObject {
     do {
       let result = try await pricingService.scan(jpegData: jpegData)
 
-      // 1. Update UI state — this is a synchronous assignment on @MainActor,
-      //    so SwiftUI will render the verdict card before we proceed to audio.
+      // Update UI state
       scanResult = result
       isScanning = false
-
-      // 2. Play TTS audio through the glasses speaker (if the backend provided it).
-      //    This runs AFTER the UI has updated because `play()` is an async call
-      //    that suspends at the await point, yielding the main actor back to
-      //    SwiftUI's rendering pass.
-      if let mp3Data = result.audioData {
-        isPlayingAudio = true
-        do {
-          try await audioManager.play(mp3Data: mp3Data)
-        } catch is CancellationError {
-          // User dismissed the verdict view while audio was playing — expected.
-        } catch {
-          // Audio playback failed — log but don't show an error alert.
-          // The verdict is already visible; audio is supplementary.
-          print("[Audio] Playback error: \(error.localizedDescription)")
-        }
-        isPlayingAudio = false
-      }
     } catch {
       scanResult = nil
       isScanning = false
@@ -200,20 +175,40 @@ final class StreamSessionViewModel: ObservableObject {
   // MARK: - Private
 
   private func startSession() async {
-    guard let deviceSession = await sessionManager.getSession() else { return }
-    guard deviceSession.state == .started else { return }
+    print("[PIR] startSession: entered")
+    guard streamSession == nil else {
+      print("[PIR] startSession: skipped — streamSession already exists")
+      return
+    }
+    print("[PIR] startSession: requesting DeviceSession")
+    guard let deviceSession = await sessionManager.getSession() else {
+      print("[PIR] startSession: getSession returned nil")
+      return
+    }
+    print("[PIR] startSession: DeviceSession state = \(deviceSession.state)")
+    guard deviceSession.state == .started else {
+      print("[PIR] startSession: DeviceSession not started, aborting")
+      return
+    }
 
     let config = StreamSessionConfig(
-      videoCodec: VideoCodec.raw,
-      resolution: StreamingResolution.low,
-      frameRate: 24
+      videoCodec: VideoCodec.hvc1,
+      resolution: StreamingResolution.medium,
+      frameRate: 30
     )
+    print("[PIR] startSession: calling addStream (codec=raw, res=medium, fps=30)")
 
-    guard let stream = try? deviceSession.addStream(config: config) else { return }
+    guard let stream = try? deviceSession.addStream(config: config) else {
+      print("[PIR] startSession: addStream failed")
+      return
+    }
+    print("[PIR] startSession: stream created, setting up listeners")
     streamSession = stream
     streamingStatus = .waiting
     setupListeners(for: stream)
+    print("[PIR] startSession: calling stream.start()")
     await stream.start()
+    print("[PIR] startSession: stream.start() returned")
   }
 
   private func setupListeners(for stream: StreamSession) {
@@ -242,6 +237,7 @@ final class StreamSessionViewModel: ObservableObject {
   }
 
   private func handleStateChange(_ state: StreamSessionState) {
+    print("[PIR] StreamSession state → \(state)")
     switch state {
     case .stopped:
       currentVideoFrame = nil
@@ -253,16 +249,27 @@ final class StreamSessionViewModel: ObservableObject {
     }
   }
 
+  private var frameCount = 0
   private func handleVideoFrame(_ frame: VideoFrame) {
+    frameCount += 1
+    if frameCount == 1 {
+      print("[PIR] first video frame received")
+    } else if frameCount % 30 == 0 {
+      print("[PIR] video frame #\(frameCount)")
+    }
     if let image = frame.makeUIImage() {
       currentVideoFrame = image
       if !hasReceivedFirstFrame {
         hasReceivedFirstFrame = true
+        print("[PIR] hasReceivedFirstFrame set to true")
       }
+    } else if frameCount == 1 {
+      print("[PIR] first frame: makeUIImage() returned nil")
     }
   }
 
   private func handleError(_ error: StreamSessionError) {
+    print("[PIR] StreamSession error: \(error)")
     let message = formatError(error)
     if message != errorMessage {
       showError(message)
