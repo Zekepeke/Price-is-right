@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		4870C6E72F949D1600D4CB55 /* SpeechRecognitionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4870C6E62F949D1600D4CB55 /* SpeechRecognitionManager.swift */; };
 		4870C6E92F949D3500D4CB55 /* Speech.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4870C6E82F949D3500D4CB55 /* Speech.framework */; };
+		4870C7072F94B1CC00D4CB55 /* PricingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4870C7062F94B1CC00D4CB55 /* PricingService.swift */; };
 		8F2D23802E856711002D0588 /* DebugMenuViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F2D237F2E856711002D0588 /* DebugMenuViewModel.swift */; };
 		8F8F00782E8ACB4600A4BDAF /* WearablesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F8F00772E8ACB4500A4BDAF /* WearablesViewModel.swift */; };
 		8FD96B7F2E6F0A9800F56AB1 /* CameraAccessApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FD96B792E6F0A9800F56AB1 /* CameraAccessApp.swift */; };
@@ -38,8 +39,6 @@
 		E6DA451F2E79A63100E3F688 /* MockDeviceKitView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6DA451A2E79A63100E3F688 /* MockDeviceKitView.swift */; };
 		E6FD3BCE2EB4D53A00E7FE5D /* NonStreamView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6FD3BCD2EB4D53A00E7FE5D /* NonStreamView.swift */; };
 		FEEE00012F95000100000001 /* DeviceSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEEE00002F95000100000001 /* DeviceSessionManager.swift */; };
-		FEEE01012F95000200000001 /* PricingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEEE01002F95000200000001 /* PricingService.swift */; };
-		FEEE01052F95000300000001 /* AudioSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEEE01042F95000300000001 /* AudioSessionManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -76,6 +75,7 @@
 		3A3A3A3A3A3A3A3A3A3A3A3A /* CameraAccess.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CameraAccess.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4870C6E62F949D1600D4CB55 /* SpeechRecognitionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechRecognitionManager.swift; sourceTree = "<group>"; };
 		4870C6E82F949D3500D4CB55 /* Speech.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Speech.framework; path = System/Library/Frameworks/Speech.framework; sourceTree = SDKROOT; };
+		4870C7062F94B1CC00D4CB55 /* PricingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PricingService.swift; sourceTree = "<group>"; };
 		8F2D237F2E856711002D0588 /* DebugMenuViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugMenuViewModel.swift; sourceTree = "<group>"; };
 		8F8F00772E8ACB4500A4BDAF /* WearablesViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WearablesViewModel.swift; sourceTree = "<group>"; };
 		8FD96B6F2E6F0A9800F56AB1 /* StreamSessionViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamSessionViewModel.swift; sourceTree = "<group>"; };
@@ -106,8 +106,6 @@
 		E6DA451A2E79A63100E3F688 /* MockDeviceKitView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockDeviceKitView.swift; sourceTree = "<group>"; };
 		E6FD3BCD2EB4D53A00E7FE5D /* NonStreamView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NonStreamView.swift; sourceTree = "<group>"; };
 		FEEE00002F95000100000001 /* DeviceSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceSessionManager.swift; sourceTree = "<group>"; };
-		FEEE01002F95000200000001 /* PricingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PricingService.swift; sourceTree = "<group>"; };
-		FEEE01042F95000300000001 /* AudioSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSessionManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -198,6 +196,7 @@
 		8FD96B7D2E6F0A9800F56AB1 /* CameraAccess */ = {
 			isa = PBXGroup;
 			children = (
+				4870C7062F94B1CC00D4CB55 /* PricingService.swift */,
 				E66CC01A2F3E1A9300B07379 /* TestResources */,
 				FEEE01022F95000200000001 /* Services */,
 				8FD96B702E6F0A9800F56AB1 /* ViewModels */,
@@ -254,8 +253,6 @@
 			isa = PBXGroup;
 			children = (
 				4870C6E62F949D1600D4CB55 /* SpeechRecognitionManager.swift */,
-				FEEE01042F95000300000001 /* AudioSessionManager.swift */,
-				FEEE01002F95000200000001 /* PricingService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -425,10 +422,9 @@
 				8F8F00782E8ACB4600A4BDAF /* WearablesViewModel.swift in Sources */,
 				E6A188482EB918740097D0E1 /* StreamView.swift in Sources */,
 				8FFD5FF52E8422580035E446 /* CircleButton.swift in Sources */,
+				4870C7072F94B1CC00D4CB55 /* PricingService.swift in Sources */,
 				8FFD5FF62E8422580035E446 /* CustomButton.swift in Sources */,
 				E6FD3BCE2EB4D53A00E7FE5D /* NonStreamView.swift in Sources */,
-				FEEE01012F95000200000001 /* PricingService.swift in Sources */,
-				FEEE01052F95000300000001 /* AudioSessionManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

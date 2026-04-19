@@ -1,343 +1,362 @@
-/*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
- * All rights reserved.
- *
- * This source code is licensed under the license found in the
- * LICENSE file in the root directory of this source tree.
- */
-
-import Combine
+import AVFoundation
 import MWDATCamera
 import MWDATCore
+import Speech
 import SwiftUI
 
-enum StreamingStatus {
-  case streaming
-  case waiting
-  case stopped
-}
-
-/// ViewModel for video streaming UI. Delegates device management to DeviceSessionManager.
 @MainActor
-final class StreamSessionViewModel: ObservableObject {
-  // MARK: - Published State
+final class GlassesManager: ObservableObject {
 
-  @Published var currentVideoFrame: UIImage?
-  @Published var hasReceivedFirstFrame: Bool = false
-  @Published var streamingStatus: StreamingStatus = .stopped
-  @Published var showError: Bool = false
-  @Published var errorMessage: String = ""
+    // MARK: - Published State
 
-  @Published var capturedPhoto: UIImage?
-  @Published var showPhotoPreview: Bool = false
-  @Published var showPhotoCaptureError: Bool = false
-  @Published var isCapturingPhoto: Bool = false
+    @Published private(set) var currentFrame: UIImage?
+    @Published private(set) var isStreaming = false
+    @Published private(set) var isConnected = false
+    @Published private(set) var statusMessage = "Waiting for glasses..."
 
-  @Published var scanResult: ScanResult?
-  @Published var isScanning: Bool = false
-  @Published var scanError: String?
+    // MARK: - SDK
 
-  @Published var hasActiveDevice: Bool = false
-  @Published var isDeviceSessionReady: Bool = false
-  @Published var isListening: Bool = false
+    private let wearables: WearablesInterface
+    private let deviceSelector: AutoDeviceSelector
+    private var deviceSession: DeviceSession?
+    private var streamSession: StreamSession?
 
-  private var lastPhotoData: Data?
-  private let pricingService: PricingService
+    private var stateListenerToken: AnyListenerToken?
+    private var frameListenerToken: AnyListenerToken?
+    private var errorListenerToken: AnyListenerToken?
+    private var photoListenerToken: AnyListenerToken?
+    private var deviceMonitorTask: Task<Void, Never>?
 
-  var isStreaming: Bool { streamingStatus != .stopped }
+    // MARK: - Retry State
 
-  // MARK: - Private
+    private var streamStartAttempt = 0
+    private let maxStreamAttempts = 6
+    private let retryDelays = [3.0, 6.0, 10.0, 15.0, 20.0, 30.0]
 
-  private let sessionManager: DeviceSessionManager
-  private let wearables: WearablesInterface
-  private var streamSession: StreamSession?
-  private var cancellables = Set<AnyCancellable>()
+    // MARK: - Speech
 
-  private var stateListenerToken: AnyListenerToken?
-  private var videoFrameListenerToken: AnyListenerToken?
-  private var errorListenerToken: AnyListenerToken?
-  private var photoDataListenerToken: AnyListenerToken?
+    private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
+    private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
+    private var recognitionTask: SFSpeechRecognitionTask?
+    private let audioEngine = AVAudioEngine()
+    private var tapInstalled = false
+    private var speechActive = false
+    private var lastTriggerDate: Date = .distantPast
 
-  // Prevents auto-restart after the user explicitly stops the stream
-  private var userDidStop = false
+    private let wakePhrase = "computa how much is this worth"
+    private let wakePhraseAlternates = [
+        "computer how much is this worth",
+        "compute how much is this worth",
+        "computa how much is it worth",
+        "computer how much is it worth",
+    ]
 
-  private let speechManager = SpeechRecognitionManager()
+    // MARK: - Init
 
-  // MARK: - Init
-
-  init(
-    wearables: WearablesInterface,
-    pricingService: PricingService = .shared
-  ) {
-    self.wearables = wearables
-    self.pricingService = pricingService
-    self.sessionManager = DeviceSessionManager(wearables: wearables)
-
-    sessionManager.$hasActiveDevice
-      .receive(on: DispatchQueue.main)
-      .assign(to: &$hasActiveDevice)
-
-    speechManager.$isListening
-      .receive(on: DispatchQueue.main)
-      .assign(to: &$isListening)
-
-    speechManager.onTriggerDetected = { [weak self] in
-      self?.capturePhoto()
+    init(wearables: WearablesInterface) {
+        self.wearables = wearables
+        self.deviceSelector = AutoDeviceSelector(wearables: wearables)
+        startDeviceMonitoring()
     }
 
-    // Auto-start streaming whenever the device session becomes ready,
-    // unless the user explicitly stopped it this session.
-    sessionManager.$isReady
-      .receive(on: DispatchQueue.main)
-      .sink { [weak self] isReady in
-        guard let self else { return }
-        self.isDeviceSessionReady = isReady
-        if isReady && !self.userDidStop {
-          Task { await self.handleStartStreaming() }
+    deinit {
+        deviceMonitorTask?.cancel()
+    }
+
+    // MARK: - Public API
+
+    func startStreaming() {
+        streamStartAttempt = 0
+        Task { await startStream() }
+    }
+
+    func stopStreaming() {
+        Task { await teardownStream() }
+    }
+
+    func capturePhoto() {
+        guard isStreaming else { return }
+        let ok = streamSession?.capturePhoto(format: .jpeg) ?? false
+        if !ok { print("[PIR] GlassesManager: capturePhoto call failed") }
+    }
+
+    // MARK: - Device Monitoring
+
+    private func startDeviceMonitoring() {
+        deviceMonitorTask = Task { [weak self] in
+            guard let self else { return }
+            for await device in deviceSelector.activeDeviceStream() {
+                if device != nil {
+                    print("[PIR] GlassesManager: device appeared, waiting 2s before streaming")
+                    statusMessage = "Glasses connected…"
+                    isConnected = true
+                    streamStartAttempt = 0
+                    try? await Task.sleep(nanoseconds: 2_000_000_000)
+                    await startStream()
+                } else {
+                    print("[PIR] GlassesManager: device lost")
+                    isConnected = false
+                    statusMessage = "Waiting for glasses..."
+                    await teardownStream()
+                }
+            }
         }
-      }
-      .store(in: &cancellables)
-  }
-
-  // MARK: - Public API
-
-  func handleStartStreaming() async {
-    guard streamingStatus == .stopped else {
-      print("[PIR] handleStartStreaming: skipped — already in status \(streamingStatus)")
-      return
-    }
-    print("[PIR] handleStartStreaming: checking camera permission")
-    let permission = Permission.camera
-    do {
-      var status = try await wearables.checkPermissionStatus(permission)
-      print("[PIR] handleStartStreaming: permission status = \(status)")
-      if status != .granted {
-        status = try await wearables.requestPermission(permission)
-        print("[PIR] handleStartStreaming: after request, permission status = \(status)")
-      }
-      guard status == .granted else {
-        print("[PIR] handleStartStreaming: permission denied, aborting")
-        showError("Permission denied")
-        return
-      }
-      await startSession()
-    } catch {
-      print("[PIR] handleStartStreaming: permission error — \(error)")
-      showError("Permission error: \(error.description)")
-    }
-  }
-
-  func stopSession() async {
-    guard let stream = streamSession else { return }
-    userDidStop = true
-    streamSession = nil
-    clearListeners()
-    streamingStatus = .stopped
-    currentVideoFrame = nil
-    hasReceivedFirstFrame = false
-    await stream.stop()
-  }
-
-  func capturePhoto() {
-    guard !isCapturingPhoto, streamingStatus == .streaming else {
-      showPhotoCaptureError = true
-      return
-    }
-    isCapturingPhoto = true
-    let success = streamSession?.capturePhoto(format: .jpeg) ?? false
-    if !success {
-      isCapturingPhoto = false
-      showPhotoCaptureError = true
-    }
-  }
-
-  func dismissError() {
-    showError = false
-    errorMessage = ""
-  }
-
-  func dismissPhotoCaptureError() {
-    showPhotoCaptureError = false
-  }
-
-  func dismissPhotoPreview() {
-    showPhotoPreview = false
-    capturedPhoto = nil
-    scanResult = nil
-    scanError = nil
-    lastPhotoData = nil
-  }
-
-  func retryScan() {
-    guard let jpegData = lastPhotoData else { return }
-    Task {
-      await runScan(jpegData: jpegData)
-    }
-  }
-
-  // MARK: - Scan Pipeline
-
-  /// Runs the full scan → UI update pipeline.
-  private func runScan(jpegData: Data) async {
-    scanError = nil
-    isScanning = true
-
-    do {
-      let result = try await pricingService.scan(jpegData: jpegData)
-
-      // Update UI state
-      scanResult = result
-      isScanning = false
-    } catch {
-      scanResult = nil
-      isScanning = false
-      scanError = (error as? LocalizedError)?.errorDescription
-        ?? error.localizedDescription
-    }
-  }
-
-  // MARK: - Private
-
-  private func startSession() async {
-    print("[PIR] startSession: entered")
-    guard streamSession == nil else {
-      print("[PIR] startSession: skipped — streamSession already exists")
-      return
-    }
-    print("[PIR] startSession: requesting DeviceSession")
-    guard let deviceSession = await sessionManager.getSession() else {
-      print("[PIR] startSession: getSession returned nil")
-      return
-    }
-    print("[PIR] startSession: DeviceSession state = \(deviceSession.state)")
-    guard deviceSession.state == .started else {
-      print("[PIR] startSession: DeviceSession not started, aborting")
-      return
     }
 
-    let config = StreamSessionConfig(
-      videoCodec: VideoCodec.raw,
-      resolution: StreamingResolution.medium,
-      frameRate: 30
-    )
-    print("[PIR] startSession: calling addStream (codec=raw, res=medium, fps=30)")
+    // MARK: - Stream Lifecycle
 
-    guard let stream = try? deviceSession.addStream(config: config) else {
-      print("[PIR] startSession: addStream failed")
-      return
+    private func startStream() async {
+        guard !isStreaming else { return }
+        statusMessage = "Connecting…"
+
+        // Create device session if needed
+        if deviceSession == nil || deviceSession?.state == .stopped {
+            deviceSession = nil
+            do {
+                let session = try wearables.createSession(deviceSelector: deviceSelector)
+                deviceSession = session
+                try session.start()
+                for await state in session.stateStream() {
+                    if state == .started { break }
+                    if state == .stopped {
+                        statusMessage = "Device session failed"
+                        return
+                    }
+                }
+            } catch {
+                print("[PIR] GlassesManager: device session error — \(error)")
+                statusMessage = "Connection error"
+                return
+            }
+        }
+
+        guard let deviceSession, deviceSession.state == .started else { return }
+
+        // Camera permission
+        do {
+            var status = try await wearables.checkPermissionStatus(.camera)
+            if status != .granted {
+                status = try await wearables.requestPermission(.camera)
+            }
+            guard status == .granted else {
+                statusMessage = "Camera permission denied"
+                return
+            }
+        } catch {
+            print("[PIR] GlassesManager: permission error — \(error)")
+            statusMessage = "Permission error"
+            return
+        }
+
+        // Create and start stream
+        let config = StreamSessionConfig(videoCodec: .raw, resolution: .medium, frameRate: 30)
+        guard let stream = try? deviceSession.addStream(config: config) else {
+            statusMessage = "Failed to create stream"
+            return
+        }
+        streamSession = stream
+        attachListeners(to: stream)
+        await stream.start()
     }
-    print("[PIR] startSession: stream created, setting up listeners")
-    streamSession = stream
-    streamingStatus = .waiting
-    setupListeners(for: stream)
-    print("[PIR] startSession: calling stream.start()")
-    await stream.start()
-    print("[PIR] startSession: stream.start() returned")
-  }
 
-  private func setupListeners(for stream: StreamSession) {
-    stateListenerToken = stream.statePublisher.listen { [weak self] state in
-      Task { @MainActor in self?.handleStateChange(state) }
+    private func teardownStream() async {
+        stopSpeechRecognition()
+        clearListeners()
+        let stream = streamSession
+        streamSession = nil
+        if let stream { await stream.stop() }
+        currentFrame = nil
+        isStreaming = false
     }
 
-    videoFrameListenerToken = stream.videoFramePublisher.listen { [weak self] frame in
-      Task { @MainActor in self?.handleUIImage(frame.makeUIImage()) }
+    // MARK: - Stream Listeners
+
+    private func attachListeners(to stream: StreamSession) {
+        stateListenerToken = stream.statePublisher.listen { [weak self] state in
+            Task { @MainActor [weak self] in self?.handleStreamState(state) }
+        }
+        frameListenerToken = stream.videoFramePublisher.listen { [weak self] frame in
+            Task { @MainActor [weak self] in self?.currentFrame = frame.makeUIImage() }
+        }
+        errorListenerToken = stream.errorPublisher.listen { [weak self] error in
+            Task { @MainActor in print("[PIR] GlassesManager: stream error — \(error)") }
+        }
+        photoListenerToken = stream.photoDataPublisher.listen { [weak self] data in
+            Task { @MainActor [weak self] in self?.handlePhoto(data) }
+        }
     }
 
-    errorListenerToken = stream.errorPublisher.listen { [weak self] error in
-      Task { @MainActor in self?.handleError(error) }
+    private func clearListeners() {
+        stateListenerToken = nil
+        frameListenerToken = nil
+        errorListenerToken = nil
+        photoListenerToken = nil
     }
 
-    photoDataListenerToken = stream.photoDataPublisher.listen { [weak self] data in
-      Task { @MainActor in self?.handlePhotoData(data) }
+    private func handleStreamState(_ state: StreamSessionState) {
+        print("[PIR] GlassesManager: stream state → \(state)")
+        switch state {
+        case .streaming:
+            streamStartAttempt = 0
+            isStreaming = true
+            statusMessage = "Streaming"
+            startSpeechRecognition()
+        case .stopped:
+            let wasStreaming = isStreaming
+            isStreaming = false
+            currentFrame = nil
+            stopSpeechRecognition()
+            if wasStreaming || !isConnected || streamStartAttempt >= maxStreamAttempts {
+                statusMessage = isConnected ? "Stopped — tap Start to retry" : "Waiting for glasses..."
+            } else {
+                scheduleRetry()
+            }
+        case .waitingForDevice, .starting:
+            statusMessage = "Starting…"
+        case .stopping:
+            statusMessage = "Stopping…"
+        case .paused:
+            statusMessage = "Paused"
+        @unknown default:
+            break
+        }
     }
-  }
 
-  private func clearListeners() {
-    stateListenerToken = nil
-    videoFrameListenerToken = nil
-    errorListenerToken = nil
-    photoDataListenerToken = nil
-  }
+    private func scheduleRetry() {
+        streamStartAttempt += 1
+        let delay = retryDelays[min(streamStartAttempt - 1, retryDelays.count - 1)]
+        statusMessage = "Glasses not ready — retrying in \(Int(delay))s… (\(streamStartAttempt)/\(maxStreamAttempts))"
+        print("[PIR] GlassesManager: error 11 — scheduling retry \(streamStartAttempt) in \(Int(delay))s")
 
-  private func handleStateChange(_ state: StreamSessionState) {
-    print("[PIR] StreamSession state → \(state)")
-    switch state {
-    case .stopped:
-      currentVideoFrame = nil
-      streamingStatus = .stopped
-      speechManager.stopListening()
-    case .waitingForDevice, .starting, .stopping, .paused:
-      streamingStatus = .waiting
-    case .streaming:
-      streamingStatus = .streaming
-      speechManager.startListening()
+        let oldStream = streamSession
+        clearListeners()
+        streamSession = nil
+
+        Task { [weak self] in
+            guard let self else { return }
+            if let s = oldStream { await s.stop() }
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            guard self.isConnected, !self.isStreaming else { return }
+            await self.startStream()
+        }
     }
-  }
 
-  private var frameCount = 0
-  private func handleUIImage(_ image: UIImage?) {
-    frameCount += 1
-    if frameCount == 1 {
-      print("[PIR] first video frame received — image: \(image != nil ? "ok" : "nil")")
-    } else if frameCount % 30 == 0 {
-      print("[PIR] video frame #\(frameCount)")
-    }
-    if let image {
-      currentVideoFrame = image
-      if !hasReceivedFirstFrame {
-        hasReceivedFirstFrame = true
-        print("[PIR] hasReceivedFirstFrame set to true")
-      }
-    }
-  }
+    // MARK: - Photo & Backend
 
-  private func handleError(_ error: StreamSessionError) {
-    print("[PIR] StreamSession error: \(error)")
-    let message = formatError(error)
-    if message != errorMessage {
-      showError(message)
+    private func handlePhoto(_ data: PhotoData) {
+        print("[PIR] GlassesManager: photo captured (\(data.data.count) bytes)")
+        Task { await postToBackend(jpegData: data.data) }
     }
-  }
 
-  private func handlePhotoData(_ data: PhotoData) {
-    isCapturingPhoto = false
-    if let image = UIImage(data: data.data) {
-      capturedPhoto = image
-      showPhotoPreview = true
-      lastPhotoData = data.data
-      // Kick off the scan → verdict → audio pipeline
-      Task {
-        await runScan(jpegData: data.data)
-      }
+    private func postToBackend(jpegData: Data) async {
+        guard let url = URL(string: "http://localhost:8000/scan") else { return }
+        let base64 = jpegData.base64EncodedString()
+        let body: [String: Any?] = ["image_base64": base64, "user_id": Optional<String>.none]
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 60
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        do {
+            let (data, _) = try await URLSession.shared.data(for: request)
+            let raw = String(data: data, encoding: .utf8) ?? "<binary>"
+            print("[PIR] /scan response: \(raw)")
+        } catch {
+            print("[PIR] GlassesManager: POST /scan failed — \(error)")
+        }
     }
-  }
 
-  private func showError(_ message: String) {
-    errorMessage = message
-    showError = true
-  }
+    // MARK: - Speech Recognition
 
-  private func formatError(_ error: StreamSessionError) -> String {
-    switch error {
-    case .internalError:
-      return "An internal error occurred. Please try again."
-    case .deviceNotFound:
-      return "Device not found. Please ensure your device is connected."
-    case .deviceNotConnected:
-      return "Device not connected. Please check your connection and try again."
-    case .timeout:
-      return "The operation timed out. Please try again."
-    case .videoStreamingError:
-      return "Video streaming failed. Please try again."
-    case .permissionDenied:
-      return "Camera permission denied. Please grant permission in Settings."
-    case .hingesClosed:
-      return "The hinges on the glasses were closed. Please open the hinges and try again."
-    case .thermalCritical:
-      return "Device is overheating. Streaming has been paused to protect the device."
-    @unknown default:
-      return "An unknown streaming error occurred."
+    private func startSpeechRecognition() {
+        guard !speechActive else { return }
+        SFSpeechRecognizer.requestAuthorization { [weak self] status in
+            guard status == .authorized else {
+                print("[PIR] GlassesManager: speech auth denied (\(status.rawValue))")
+                return
+            }
+            self?.beginSpeechSession()
+        }
     }
-  }
+
+    private func stopSpeechRecognition() {
+        speechActive = false
+        endSpeechSession()
+    }
+
+    private func beginSpeechSession() {
+        guard let recognizer = speechRecognizer, recognizer.isAvailable else { return }
+        endSpeechSession()
+        speechActive = true
+
+        do {
+            try AVAudioSession.sharedInstance().setCategory(
+                .playAndRecord, mode: .default,
+                options: [.defaultToSpeaker, .allowBluetooth]
+            )
+            try AVAudioSession.sharedInstance().setActive(true)
+        } catch {
+            print("[PIR] GlassesManager: audio session error — \(error)")
+        }
+
+        let req = SFSpeechAudioBufferRecognitionRequest()
+        req.shouldReportPartialResults = true
+        recognitionRequest = req
+
+        recognitionTask = recognizer.recognitionTask(with: req) { [weak self] result, error in
+            guard let self else { return }
+            if let text = result?.bestTranscription.formattedString {
+                self.checkForWakePhrase(text)
+            }
+            if error != nil || result?.isFinal == true {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+                    guard self?.speechActive == true else { return }
+                    self?.beginSpeechSession()
+                }
+            }
+        }
+
+        let inputNode = audioEngine.inputNode
+        let fmt = inputNode.outputFormat(forBus: 0)
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: fmt) { [weak self] buf, _ in
+            self?.recognitionRequest?.append(buf)
+        }
+        tapInstalled = true
+
+        audioEngine.prepare()
+        do {
+            try audioEngine.start()
+            print("[PIR] GlassesManager: speech recognition active")
+        } catch {
+            print("[PIR] GlassesManager: audio engine failed — \(error)")
+            endSpeechSession()
+        }
+    }
+
+    private func checkForWakePhrase(_ transcript: String) {
+        let lower = transcript.lowercased()
+        let matched = lower.contains(wakePhrase) || wakePhraseAlternates.contains { lower.contains($0) }
+        guard matched else { return }
+
+        let now = Date()
+        guard now.timeIntervalSince(lastTriggerDate) > 5 else { return }
+        lastTriggerDate = now
+
+        print("[PIR] GlassesManager: wake phrase detected in \"\(transcript)\"")
+        Task { @MainActor [weak self] in self?.capturePhoto() }
+    }
+
+    private func endSpeechSession() {
+        if tapInstalled {
+            audioEngine.inputNode.removeTap(onBus: 0)
+            tapInstalled = false
+        }
+        audioEngine.stop()
+        recognitionRequest?.endAudio()
+        recognitionTask?.cancel()
+        recognitionRequest = nil
+        recognitionTask = nil
+    }
 }
