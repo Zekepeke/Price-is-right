@@ -96,11 +96,13 @@ async def scan_item(req: ScanRequest):
 
     if pricing["count"] == 0:
         verdict = "No pricing data"
+        net_profit = 0.0
     else:
         median = pricing["median"]
         verdict = "Great deal" if median < 20 else "Fair price" if median < 60 else "Overpriced"
+        net_profit = median - (median * 0.1325) - 5
 
-    spoken_text = f"{verdict}. Price range: ${pricing['low']:.2f} to ${pricing['high']:.2f}"
+    spoken_text = f"{verdict}. Price range: ${pricing['low']:.2f} to ${pricing['high']:.2f}. After fees, you'd net about ${net_profit:.2f} per sale."
     audio_base64 = None
     try:
         audio_bytes = await elevenlabs.synthesize(spoken_text)
@@ -137,4 +139,5 @@ async def scan_item(req: ScanRequest):
         "verdict": verdict,
         "image_url": image_url,
         "audio": {"data": audio_base64, "content_type": "audio/mpeg"} if audio_base64 else None,
+        "net_profit": round(net_profit, 2),
     }
