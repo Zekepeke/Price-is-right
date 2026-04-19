@@ -134,6 +134,29 @@
       margin-bottom: 1rem;
     }
 
+    .summary-box {
+      background: #f0f4ff;
+      border-left: 3px solid #6366f1;
+      border-radius: 6px;
+      padding: 0.875rem 1rem;
+      margin-bottom: 0.75rem;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      color: #1e1b4b;
+      font-weight: 500;
+    }
+
+    .fallback-note {
+      display: none;
+      font-size: 0.775rem;
+      color: #6b7280;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 0.4rem 0.75rem;
+      margin-bottom: 1rem;
+    }
+
     .detail-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -207,7 +230,13 @@
   <div class="panel" id="result">
     <img class="result-image" id="result-image" alt="Scanned item">
 
+    <div class="summary-box" id="r-summary"></div>
+
+    <audio id="audio-player" controls style="display:none; width:100%; margin-bottom:12px;"></audio>
+
     <div id="verdict-badge" class="verdict-badge"></div>
+
+    <div class="fallback-note" id="r-fallback"></div>
 
     <div class="detail-grid">
       <div class="detail-item">
@@ -241,15 +270,18 @@
   </div>
 
   <script>
-    const fileInput  = document.getElementById("file-input");
-    const preview    = document.getElementById("preview");
-    const scanBtn    = document.getElementById("scan-btn");
-    const btnLabel   = document.getElementById("btn-label");
-    const spinner    = document.getElementById("spinner");
-    const errorBox   = document.getElementById("error-box");
+    const fileInput   = document.getElementById("file-input");
+    const preview     = document.getElementById("preview");
+    const scanBtn     = document.getElementById("scan-btn");
+    const btnLabel    = document.getElementById("btn-label");
+    const spinner     = document.getElementById("spinner");
+    const errorBox    = document.getElementById("error-box");
     const resultPanel = document.getElementById("result");
 
+    const SOURCE_LABELS = { ebay: "eBay", discogs: "Discogs", tcg: "TCGPlayer" };
+
     let selectedFile = null;
+    let currentAudioUrl = null;
 
     fileInput.addEventListener("change", () => {
       selectedFile = fileInput.files[0];
@@ -334,21 +366,58 @@
         imgEl.style.display = "none";
       }
 
+      // Summary
+      const summaryEl = document.getElementById("r-summary");
+      summaryEl.textContent = data.summary || "";
+      summaryEl.style.display = data.summary ? "block" : "none";
+
+      // Audio
+      const audioEl = document.getElementById("audio-player");
+      if (currentAudioUrl) {
+        URL.revokeObjectURL(currentAudioUrl);
+        currentAudioUrl = null;
+      }
+      if (data.audio && data.audio.data) {
+        const audioBytes = Uint8Array.from(atob(data.audio.data), c => c.charCodeAt(0));
+        const blob = new Blob([audioBytes], { type: data.audio.content_type || "audio/mpeg" });
+        currentAudioUrl = URL.createObjectURL(blob);
+        audioEl.src = currentAudioUrl;
+        audioEl.style.display = "block";
+        audioEl.load();
+      } else {
+        audioEl.removeAttribute("src");
+        audioEl.style.display = "none";
+      }
+
+      // Fallback note
+      const fallbackEl = document.getElementById("r-fallback");
+      const p = data.pricing || {};
+      if (p.used_fallback) {
+        const from = SOURCE_LABELS[p.requested_source] || p.requested_source || "primary source";
+        const to = SOURCE_LABELS[p.actual_source] || p.actual_source || "eBay";
+        fallbackEl.textContent = `📎 ${from} had no results — prices from ${to} instead`;
+        fallbackEl.style.display = "block";
+      } else {
+        fallbackEl.style.display = "none";
+      }
+
       document.getElementById("r-category").textContent  = data.item.category  ?? "—";
       document.getElementById("r-brand").textContent     = data.item.brand      ?? "—";
       document.getElementById("r-condition").textContent = data.item.condition  ?? "—";
       document.getElementById("r-confidence").textContent =
         data.item.confidence != null ? Math.round(data.item.confidence * 100) + "%" : "—";
 
-      if (data.pricing && data.pricing.count > 0) {
-        document.getElementById("r-median").textContent = "$" + data.pricing.median.toFixed(2);
+      const actualSource = SOURCE_LABELS[p.actual_source] || p.actual_source || "eBay";
+
+      if (p.count > 0) {
+        document.getElementById("r-median").textContent = "$" + p.median.toFixed(2);
         document.getElementById("r-range").textContent  =
-          "$" + data.pricing.low.toFixed(2) + " – $" + data.pricing.high.toFixed(2);
-        document.getElementById("r-count").textContent  = data.pricing.count + " listings";
-        document.getElementById("r-source").textContent = "eBay";
+          "$" + p.low.toFixed(2) + " – $" + p.high.toFixed(2);
+        document.getElementById("r-count").textContent  = p.count + " listings";
+        document.getElementById("r-source").textContent = actualSource;
       } else {
         document.getElementById("r-median").textContent = "—";
-        document.getElementById("r-range").textContent  = "No eBay listings found";
+        document.getElementById("r-range").textContent  = "No listings found";
         document.getElementById("r-count").textContent  = "";
         document.getElementById("r-source").textContent = "";
       }
