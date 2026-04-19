@@ -39,6 +39,7 @@ final class StreamSessionViewModel: ObservableObject {
 
   @Published var hasActiveDevice: Bool = false
   @Published var isDeviceSessionReady: Bool = false
+  @Published var isListening: Bool = false
 
   private var lastPhotoData: Data?
   private let pricingService: PricingService
@@ -57,6 +58,11 @@ final class StreamSessionViewModel: ObservableObject {
   private var errorListenerToken: AnyListenerToken?
   private var photoDataListenerToken: AnyListenerToken?
 
+  // Prevents auto-restart after the user explicitly stops the stream
+  private var userDidStop = false
+
+  private let speechManager = SpeechRecognitionManager()
+
   // MARK: - Init
 
   init(
@@ -67,13 +73,30 @@ final class StreamSessionViewModel: ObservableObject {
     self.pricingService = pricingService
     self.sessionManager = DeviceSessionManager(wearables: wearables)
 
-    // Forward session manager state to this ViewModel for SwiftUI binding
     sessionManager.$hasActiveDevice
       .receive(on: DispatchQueue.main)
       .assign(to: &$hasActiveDevice)
+
+    speechManager.$isListening
+      .receive(on: DispatchQueue.main)
+      .assign(to: &$isListening)
+
+    speechManager.onTriggerDetected = { [weak self] in
+      self?.capturePhoto()
+    }
+
+    // Auto-start streaming whenever the device session becomes ready,
+    // unless the user explicitly stopped it this session.
     sessionManager.$isReady
       .receive(on: DispatchQueue.main)
-      .assign(to: &$isDeviceSessionReady)
+      .sink { [weak self] isReady in
+        guard let self else { return }
+        self.isDeviceSessionReady = isReady
+        if isReady && !self.userDidStop {
+          Task { await self.handleStartStreaming() }
+        }
+      }
+      .store(in: &cancellables)
   }
 
   // MARK: - Public API
@@ -106,6 +129,7 @@ final class StreamSessionViewModel: ObservableObject {
 
   func stopSession() async {
     guard let stream = streamSession else { return }
+    userDidStop = true
     streamSession = nil
     clearListeners()
     streamingStatus = .stopped
@@ -192,7 +216,7 @@ final class StreamSessionViewModel: ObservableObject {
     }
 
     let config = StreamSessionConfig(
-      videoCodec: VideoCodec.hvc1,
+      videoCodec: VideoCodec.raw,
       resolution: StreamingResolution.medium,
       frameRate: 30
     )
@@ -217,7 +241,7 @@ final class StreamSessionViewModel: ObservableObject {
     }
 
     videoFrameListenerToken = stream.videoFramePublisher.listen { [weak self] frame in
-      Task { @MainActor in self?.handleVideoFrame(frame) }
+      Task { @MainActor in self?.handleUIImage(frame.makeUIImage()) }
     }
 
     errorListenerToken = stream.errorPublisher.listen { [weak self] error in
@@ -242,29 +266,29 @@ final class StreamSessionViewModel: ObservableObject {
     case .stopped:
       currentVideoFrame = nil
       streamingStatus = .stopped
+      speechManager.stopListening()
     case .waitingForDevice, .starting, .stopping, .paused:
       streamingStatus = .waiting
     case .streaming:
       streamingStatus = .streaming
+      speechManager.startListening()
     }
   }
 
   private var frameCount = 0
-  private func handleVideoFrame(_ frame: VideoFrame) {
+  private func handleUIImage(_ image: UIImage?) {
     frameCount += 1
     if frameCount == 1 {
-      print("[PIR] first video frame received")
+      print("[PIR] first video frame received — image: \(image != nil ? "ok" : "nil")")
     } else if frameCount % 30 == 0 {
       print("[PIR] video frame #\(frameCount)")
     }
-    if let image = frame.makeUIImage() {
+    if let image {
       currentVideoFrame = image
       if !hasReceivedFirstFrame {
         hasReceivedFirstFrame = true
         print("[PIR] hasReceivedFirstFrame set to true")
       }
-    } else if frameCount == 1 {
-      print("[PIR] first frame: makeUIImage() returned nil")
     }
   }
 

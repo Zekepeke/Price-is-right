@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		4870C6E72F949D1600D4CB55 /* SpeechRecognitionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4870C6E62F949D1600D4CB55 /* SpeechRecognitionManager.swift */; };
+		4870C6E92F949D3500D4CB55 /* Speech.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4870C6E82F949D3500D4CB55 /* Speech.framework */; };
 		8F2D23802E856711002D0588 /* DebugMenuViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F2D237F2E856711002D0588 /* DebugMenuViewModel.swift */; };
 		8F8F00782E8ACB4600A4BDAF /* WearablesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F8F00772E8ACB4500A4BDAF /* WearablesViewModel.swift */; };
 		8FD96B7F2E6F0A9800F56AB1 /* CameraAccessApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FD96B792E6F0A9800F56AB1 /* CameraAccessApp.swift */; };
@@ -72,6 +74,8 @@
 
 /* Begin PBXFileReference section */
 		3A3A3A3A3A3A3A3A3A3A3A3A /* CameraAccess.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CameraAccess.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		4870C6E62F949D1600D4CB55 /* SpeechRecognitionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechRecognitionManager.swift; sourceTree = "<group>"; };
+		4870C6E82F949D3500D4CB55 /* Speech.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Speech.framework; path = System/Library/Frameworks/Speech.framework; sourceTree = SDKROOT; };
 		8F2D237F2E856711002D0588 /* DebugMenuViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugMenuViewModel.swift; sourceTree = "<group>"; };
 		8F8F00772E8ACB4500A4BDAF /* WearablesViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WearablesViewModel.swift; sourceTree = "<group>"; };
 		8FD96B6F2E6F0A9800F56AB1 /* StreamSessionViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamSessionViewModel.swift; sourceTree = "<group>"; };
@@ -116,6 +120,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4870C6E92F949D3500D4CB55 /* Speech.framework in Frameworks */,
 				8FD96B952E6F0F7D00F56AB1 /* MWDATCore in Frameworks */,
 				8FD96B952E6F0F7D00F56AB2 /* MWDATCamera in Frameworks */,
 				8FD96B952E6F0F7D00F56AB3 /* MWDATMockDevice in Frameworks */,
@@ -156,6 +161,7 @@
 		8F2A14F12DDBCEB900D4E5F2 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				4870C6E82F949D3500D4CB55 /* Speech.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -204,15 +210,6 @@
 			path = CameraAccess;
 			sourceTree = "<group>";
 		};
-		FEEE01022F95000200000001 /* Services */ = {
-			isa = PBXGroup;
-			children = (
-				FEEE01042F95000300000001 /* AudioSessionManager.swift */,
-				FEEE01002F95000200000001 /* PricingService.swift */,
-			);
-			path = Services;
-			sourceTree = "<group>";
-		};
 		8FFD5FF42E8422580035E446 /* Components */ = {
 			isa = PBXGroup;
 			children = (
@@ -251,6 +248,16 @@
 				E66D30232E7DA71900470B48 /* MockDeviceKitButton.swift */,
 			);
 			path = MockDeviceKit;
+			sourceTree = "<group>";
+		};
+		FEEE01022F95000200000001 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				4870C6E62F949D1600D4CB55 /* SpeechRecognitionManager.swift */,
+				FEEE01042F95000300000001 /* AudioSessionManager.swift */,
+				FEEE01002F95000200000001 /* PricingService.swift */,
+			);
+			path = Services;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -403,6 +410,7 @@
 				8FFD60542E849D0D0035E446 /* RegistrationView.swift in Sources */,
 				8FFD60342E8434070035E446 /* MediaPickerView.swift in Sources */,
 				8FFD60352E8434070035E446 /* StatusText.swift in Sources */,
+				4870C6E72F949D1600D4CB55 /* SpeechRecognitionManager.swift in Sources */,
 				8FFD602C2E8433E20035E446 /* MockDeviceKitViewModel.swift in Sources */,
 				8FFD602D2E8433E20035E446 /* MockDeviceViewModel.swift in Sources */,
 				E6DA451D2E79A63100E3F688 /* MockDeviceCardView.swift in Sources */,

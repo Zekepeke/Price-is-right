@@ -95,7 +95,15 @@ final class DeviceSessionManager: ObservableObject {
         if let device {
           print("[PIR] DeviceSessionManager: active device appeared — \(device)")
           hasActiveDevice = true
-          _ = await getSession()
+          // Retry with backoff — BLE stack may not be fully ready on first fire
+          for attempt in 1...3 {
+            if await getSession() != nil {
+              print("[PIR] DeviceSessionManager: session ready on attempt \(attempt)")
+              break
+            }
+            print("[PIR] DeviceSessionManager: session attempt \(attempt) failed, retrying in 2s")
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+          }
         } else {
           print("[PIR] DeviceSessionManager: active device lost")
           hasActiveDevice = false
