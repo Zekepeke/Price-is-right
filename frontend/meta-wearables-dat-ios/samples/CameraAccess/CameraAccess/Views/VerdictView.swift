@@ -143,7 +143,7 @@ struct VerdictView: View {
 
       Divider().background(Color.white.opacity(0.2))
 
-      pricingRow(result.pricing)
+      pricingRow(result.pricing, netProfit: result.netProfit)
 
       // LLM-generated summary text (conversational verdict explanation)
       if let summary = result.summary, !summary.isEmpty {
@@ -179,7 +179,7 @@ struct VerdictView: View {
     .frame(maxWidth: .infinity, alignment: .leading)
   }
 
-  private func pricingRow(_ pricing: Pricing) -> some View {
+  private func pricingRow(_ pricing: Pricing, netProfit: Double? = nil) -> some View {
     HStack(alignment: .firstTextBaseline) {
       VStack(alignment: .leading, spacing: 2) {
         Text("Median")
@@ -188,6 +188,11 @@ struct VerdictView: View {
         Text(formatPrice(pricing.median))
           .font(.title2.bold())
           .foregroundColor(.white)
+        if let profit = netProfit {
+          Text("Net ~\(formatPrice(profit)) after fees")
+            .font(.caption)
+            .foregroundColor(.white.opacity(0.6))
+        }
       }
       Spacer()
       VStack(alignment: .trailing, spacing: 2) {

@@ -21,6 +21,7 @@ struct ScanResult: Codable, Equatable {
   let imageUrl: String?
   let summary: String?
   let audio: AudioPayload?
+  let netProfit: Double?
 
   // Backend uses snake_case; Swift uses camelCase.
   enum CodingKeys: String, CodingKey {
@@ -28,6 +29,7 @@ struct ScanResult: Codable, Equatable {
     case item, pricing, verdict
     case imageUrl = "image_url"
     case summary, audio
+    case netProfit = "net_profit"
   }
 
   /// Convenience: decodes `audio.data` (base64 string) into raw MP3 bytes.
