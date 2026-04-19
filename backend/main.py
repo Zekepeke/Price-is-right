@@ -10,6 +10,8 @@ from supabase import create_client, Client
 from vision import claude, gemini
 from pricing import ebay, discogs, tcg
 from summary import generate_summary
+from tts import speak
+from tts.script import build_speech
 
 load_dotenv()
 app = FastAPI()
@@ -105,8 +107,22 @@ async def scan_item(req: ScanRequest):
         verdict = "Great deal" if median < 20 else "Fair price" if median < 60 else "Overpriced"
 
     print(f"[SUMMARY] generating...")
-    summary = generate_summary(item, pricing, verdict)
+    try:
+        summary = generate_summary(item, pricing, verdict)
+        if not summary:
+            raise ValueError("Empty summary returned")
+    except Exception as e:
+        print(f"[SUMMARY] ERROR: {type(e).__name__}: {e}")
+        summary = build_speech(item, pricing, verdict)
     print(f"[SUMMARY] {summary!r}")
+
+    audio_b64 = None
+    audio_content_type = None
+    try:
+        audio_bytes, audio_content_type = await speak(summary)
+        audio_b64 = base64.b64encode(audio_bytes).decode()
+    except Exception as e:
+        print(f"[TTS] ERROR: {type(e).__name__}: {e}")
 
     scan_row = supabase.table("scans").insert({
         "user_id": req.user_id,
@@ -137,4 +153,8 @@ async def scan_item(req: ScanRequest):
         "verdict": verdict,
         "image_url": image_url,
         "summary": summary,
+        "audio": {
+            "data": audio_b64,
+            "content_type": audio_content_type,
+        } if audio_b64 else None,
     }

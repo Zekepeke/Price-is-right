@@ -139,10 +139,11 @@
       border-left: 3px solid #6366f1;
       border-radius: 6px;
       padding: 0.875rem 1rem;
-      margin-bottom: 1rem;
-      font-size: 0.9rem;
-      line-height: 1.55;
+      margin-bottom: 0.75rem;
+      font-size: 0.95rem;
+      line-height: 1.6;
       color: #1e1b4b;
+      font-weight: 500;
     }
 
     .fallback-note {
@@ -229,9 +230,11 @@
   <div class="panel" id="result">
     <img class="result-image" id="result-image" alt="Scanned item">
 
-    <div id="verdict-badge" class="verdict-badge"></div>
-
     <div class="summary-box" id="r-summary"></div>
+
+    <audio id="audio-player" controls style="display:none; width:100%; margin-bottom:12px;"></audio>
+
+    <div id="verdict-badge" class="verdict-badge"></div>
 
     <div class="fallback-note" id="r-fallback"></div>
 
@@ -278,6 +281,7 @@
     const SOURCE_LABELS = { ebay: "eBay", discogs: "Discogs", tcg: "TCGPlayer" };
 
     let selectedFile = null;
+    let currentAudioUrl = null;
 
     fileInput.addEventListener("change", () => {
       selectedFile = fileInput.files[0];
@@ -367,12 +371,31 @@
       summaryEl.textContent = data.summary || "";
       summaryEl.style.display = data.summary ? "block" : "none";
 
+      // Audio
+      const audioEl = document.getElementById("audio-player");
+      if (currentAudioUrl) {
+        URL.revokeObjectURL(currentAudioUrl);
+        currentAudioUrl = null;
+      }
+      if (data.audio && data.audio.data) {
+        const audioBytes = Uint8Array.from(atob(data.audio.data), c => c.charCodeAt(0));
+        const blob = new Blob([audioBytes], { type: data.audio.content_type || "audio/mpeg" });
+        currentAudioUrl = URL.createObjectURL(blob);
+        audioEl.src = currentAudioUrl;
+        audioEl.style.display = "block";
+        audioEl.load();
+      } else {
+        audioEl.removeAttribute("src");
+        audioEl.style.display = "none";
+      }
+
       // Fallback note
       const fallbackEl = document.getElementById("r-fallback");
       const p = data.pricing || {};
       if (p.used_fallback) {
         const from = SOURCE_LABELS[p.requested_source] || p.requested_source || "primary source";
-        fallbackEl.textContent = `⤷ No results on ${from} — fell back to eBay`;
+        const to = SOURCE_LABELS[p.actual_source] || p.actual_source || "eBay";
+        fallbackEl.textContent = `📎 ${from} had no results — prices from ${to} instead`;
         fallbackEl.style.display = "block";
       } else {
         fallbackEl.style.display = "none";
